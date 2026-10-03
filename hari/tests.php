@@ -102,6 +102,36 @@ $tests['tampered life state is rejected']=function(){
     }finally{@unlink($p);}
 };
 
+
+$tests['conflicting demonstrations do not become a learned skill']=function(){
+    $h=new Hari();$h->teach('ne','फोन गर','call');
+    ok(!$h->demonstrateSkill('call',['person'=>'Mom'],[
+        new Action('FIND_CONTACT',['person'=>'Mom'],.95,Risk::Read),
+        new Action('CALL',['person'=>'Mom'],.95,Risk::External),
+    ]));
+    ok(!$h->demonstrateSkill('call',['person'=>'Dad'],[
+        new Action('OPEN_APP',['app'=>'Phone'],.95,Risk::Reversible),
+        new Action('CALL',['person'=>'Dad'],.95,Risk::External),
+    ]));
+    eq(null,$h->plan('ne','फोन गर',['person'=>'Pratik']));
+};
+
+$tests['induced slot skill generalizes across many unseen values']=function(){
+    $h=new Hari();$h->teach('ne','सन्देश पठाऊ','message');
+    $make=fn(string $person)=>[new Action('SEND_MESSAGE',['person'=>$person,'message'=>'{message}'],.94,Risk::External)];
+    ok(!$h->demonstrateSkill('message',['person'=>'Mom'],[new Action('SEND_MESSAGE',['person'=>'Mom','message'=>'{message}'],.94,Risk::External)]));
+    ok($h->demonstrateSkill('message',['person'=>'Dad'],[new Action('SEND_MESSAGE',['person'=>'Dad','message'=>'{message}'],.94,Risk::External)]));
+    for($i=0;$i<100;$i++){
+        $person='Person-'.$i;
+        $plan=$h->plan('ne','सन्देश पठाऊ',['person'=>$person,'message'=>'hello']);
+        eq($person,$plan[0]->args['person']??null);eq('hello',$plan[0]->args['message']??null);eq(Risk::External,$plan[0]->risk);
+    }
+};
+
+$tests['missing capability returns no tool instead of inventing one']=function(){
+    $r=new ToolRouter();$r->add(new Tool('image-only',['image'],0,.9,true));eq(null,$r->choose('coding'));
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
