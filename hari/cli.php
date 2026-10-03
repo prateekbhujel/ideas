@@ -17,6 +17,13 @@ if(trim((string)$raw)===''){
     exit(64);
 }
 
+$lock=fopen($state.'.lock','c+');
+if($lock===false||!flock($lock,LOCK_EX)){
+    fwrite(STDERR,"unable to lock HARI state\n");
+    exit(75);
+}
+$exitCode=0;
+
 try{
     $command=json_decode((string)$raw,true,flags:JSON_THROW_ON_ERROR);
     if(!is_array($command))throw new InvalidArgumentException('command must be a JSON object');
@@ -43,8 +50,12 @@ try{
     echo json_encode(['ok'=>true,'result'=>$result],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";
 }catch(Throwable $e){
     echo json_encode(['ok'=>false,'error'=>$e->getMessage()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)."\n";
-    exit(1);
+    $exitCode=1;
+}finally{
+    flock($lock,LOCK_UN);
+    fclose($lock);
 }
+exit($exitCode);
 
 /** @param array<string,mixed> $c */
 function teach(Hari $h,array $c):array
