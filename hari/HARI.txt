@@ -136,3 +136,49 @@ Measure:
 If HARI cannot beat simple baselines there, do not spend money building a giant model around it.
 
 If it does, connect the same kernel to a real Android body and repeat with real users.
+
+
+CONVERSATION IS NOT JUST WORD MATCHING
+
+HARI must maintain common ground with the person.
+
+A phrase can carry:
+- literal content
+- speech act: request, correction, rejection, prohibition, information, question
+- references such as "her", "that one", "the old photo"
+- assumptions about people, apps, prior events and shared history
+- scope: right now, this session, from now on, usually, never
+- confidence
+- social/friction signals from timing, wording and eventually voice
+
+A heated response is NOT proof of anger and is NOT permission to invent a psychological state.
+It is evidence that common ground may have broken.
+
+If HARI just failed and the person's response becomes sharp, HARI should re-check its last assumptions, stop repeating the same action, and repair the conversation.
+
+Example:
+User: "Call her."
+HARI does not know who "her" is.
+Correct behavior: ask.
+
+User: "No, I said don't call her."
+Correct behavior: mark the previous interpretation disputed, do not execute a call, and repair the misunderstanding.
+
+User: "Use Viber today, but normally use WhatsApp."
+Correct behavior: create a session-scoped exception without erasing the persistent preference.
+
+This layer now exists as an explicit common-ground and repair kernel.
+It does NOT solve unrestricted human pragmatics, sarcasm, emotion understanding or Nepali semantics yet.
+Those require learned semantic/perceptual models and much harder evaluation.
+
+RESEARCH WARNING
+
+Human-like conversational grounding is an active research problem. Current language models often clarify less than humans and miss subtle common-ground failures. Emotion recognition also degrades across cultures, languages, idioms and code-switching.
+
+Therefore HARI should:
+- represent uncertainty explicitly
+- ask targeted clarification when it changes the decision
+- never turn affect estimates directly into facts
+- treat corrections/rejections as first-class dialogue acts
+- distinguish temporary exceptions from persistent changes
+- preserve superseded beliefs as history instead of silently overwriting them

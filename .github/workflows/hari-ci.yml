@@ -33,6 +33,8 @@ jobs:
           php -l hari/integration-test.php
           php -l hari/adversarial-test.php
           php -l hari/research-bench.php
+          php -l hari/dialogue.php
+          php -l hari/dialogue-test.php
       - name: Core tests
         run: php hari/tests.php
       - name: Protocol test
@@ -47,5 +49,7 @@ jobs:
         run: php hari/adversarial-test.php
       - name: Longitudinal sanity benchmark
         run: php hari/research-bench.php
+      - name: Conversational grounding
+        run: php hari/dialogue-test.php
       - name: End-to-end demo
         run: php hari/demo.php
