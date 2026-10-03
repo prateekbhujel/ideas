@@ -18,3 +18,4 @@ jobs:
       - run: php -l hari/core.php
       - run: php -l hari/tests.php
       - run: php hari/tests.php
+      - run: php hari/demo.php
