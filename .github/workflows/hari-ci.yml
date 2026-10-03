@@ -23,3 +23,6 @@ jobs:
         run: php -l hari/core.php && php -l hari/tests.php
       - name: Test
         run: php hari/tests.php
+
+      - name: End-to-end demo
+        run: php hari/demo.php
