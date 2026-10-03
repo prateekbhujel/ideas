@@ -246,6 +246,32 @@ final class SkillInducer
         }
         return $template;
     }
+    /** @return array<string,list<array{slots:array<string,scalar|null>,actions:list<array<string,mixed>>}>> */
+    public function export():array
+    {
+        $out=[];
+        foreach($this->demos as $concept=>$demos){
+            foreach($demos as $demo){
+                $out[$concept][]=[
+                    'slots'=>$demo['slots'],
+                    'actions'=>array_map(fn(Action $a)=>['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value],$demo['actions']),
+                ];
+            }
+        }
+        return $out;
+    }
+    /** @param array<string,list<array{slots?:array<string,scalar|null>,actions?:list<array<string,mixed>>}>> $data */
+    public static function import(array $data):self
+    {
+        $i=new self();
+        foreach($data as $concept=>$demos){
+            foreach($demos as $demo){
+                $actions=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0))),$demo['actions']??[]);
+                if($actions!==[])$i->demonstrate((string)$concept,is_array($demo['slots']??null)?$demo['slots']:[],$actions);
+            }
+        }
+        return $i;
+    }
 }
 
 final class Hari
@@ -272,8 +298,8 @@ final class Hari
     public function save(string $path):void
     {
         $payload=json_encode([
-            'v'=>2,'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
-            'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),
+            'v'=>3,'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
+            'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'inducer'=>$this->inducer->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),
         ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
         $dir=dirname($path);
         if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new \RuntimeException('state directory');
@@ -288,9 +314,13 @@ final class Hari
         $x=json_decode((string)file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);
         $v=(int)($x['v']??1);
         if($v===1)return new self(Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]));
-        if($v!==2)throw new \RuntimeException('unsupported state');
-        return new self(
+        if($v===2)return new self(
             Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),new SkillInducer(),
+            Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
+        );
+        if($v!==3)throw new \RuntimeException('unsupported state');
+        return new self(
+            Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),SkillInducer::import($x['inducer']??[]),
             Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
         );
     }
