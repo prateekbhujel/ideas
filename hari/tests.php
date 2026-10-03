@@ -132,6 +132,32 @@ $tests['missing capability returns no tool instead of inventing one']=function()
     $r=new ToolRouter();$r->add(new Tool('image-only',['image'],0,.9,true));eq(null,$r->choose('coding'));
 };
 
+
+$tests['learns a Nepali sentence pattern and extracts a new slot without host help']=function(){
+    $h=new Hari();
+    $h->teachSkill('video_call',[
+        new Action('FIND_CONTACT',['person'=>'{person}'],.95,Risk::Read),
+        new Action('VIDEO_CALL',['person'=>'{person}'],.95,Risk::External),
+    ]);
+    ok(!$h->demonstrateUtterance('ne','प्रतीकलाई देखिने फोन गर','video_call',['person'=>'प्रतीक']));
+    ok($h->demonstrateUtterance('ne','आमालाई देखिने फोन गर','video_call',['person'=>'आमा']));
+    $plan=$h->planUtterance('ne','बुबालाई देखिने फोन गर');
+    ok($plan!==null);eq('बुबा',$plan[0]->args['person']);eq('बुबा',$plan[1]->args['person']);
+};
+
+$tests['learned sentence structure survives restart']=function(){
+    $p=sys_get_temp_dir().'/hari-utterance-'.bin2hex(random_bytes(3)).'.json';
+    try{
+        $h=new Hari();
+        $h->teachSkill('call',[new Action('CALL',['person'=>'{person}'],.96,Risk::External)]);
+        $h->demonstrateUtterance('ne','प्रतीकलाई फोन गर','call',['person'=>'प्रतीक']);
+        $h->demonstrateUtterance('ne','आमालाई फोन गर','call',['person'=>'आमा']);
+        $h->save($p);$r=Hari::load($p);
+        $plan=$r->planUtterance('ne','बुबालाई फोन गर');
+        eq('बुबा',$plan[0]->args['person']??null);
+    }finally{@unlink($p);}
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
