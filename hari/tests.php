@@ -51,6 +51,27 @@ $tests['v1 state remains loadable after life format upgrade']=function(){
     }finally{@unlink($p);}
 };
 
+
+$tests['partial learning survives restart and can finish later']=function(){
+    $p=sys_get_temp_dir().'/hari-learning-'.bin2hex(random_bytes(3)).'.json';
+    try{
+        $h=new Hari();$h->teach('ne','देखिने फोन','video_call');
+        $learned=$h->demonstrateSkill('video_call',['person'=>'Pratik'],[
+            new Action('FIND_CONTACT',['person'=>'Pratik'],.95,Risk::Read),
+            new Action('VIDEO_CALL',['person'=>'Pratik'],.95,Risk::External),
+        ]);
+        ok(!$learned);$h->save($p);
+        $r=Hari::load($p);
+        $learned=$r->demonstrateSkill('video_call',['person'=>'Mom'],[
+            new Action('FIND_CONTACT',['person'=>'Mom'],.95,Risk::Read),
+            new Action('VIDEO_CALL',['person'=>'Mom'],.95,Risk::External),
+        ]);
+        ok($learned);
+        $plan=$r->plan('ne','देखिने फोन',['person'=>'Dad']);
+        eq('Dad',$plan[1]->args['person']??null);
+    }finally{@unlink($p);}
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
