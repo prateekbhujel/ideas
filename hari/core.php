@@ -189,12 +189,35 @@ final class SkillBook
     { $b=new self();foreach($data as $c=>$as){$b->skills[$c]=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0))),$as);}return $b; }
 }
 
+final class SkillInducer
+{
+    /** @var array<string,list<array{slots:array<string,scalar|null>,actions:list<Action>}>> */ private array $demos=[];
+    /** @param array<string,scalar|null> $slots @param list<Action> $actions */
+    public function demonstrate(string $concept,array $slots,array $actions):void{$this->demos[$concept][]=['slots'=>$slots,'actions'=>$actions];}
+    /** @return list<Action>|null */
+    public function induce(string $concept,int $minimum=2):?array
+    {
+        $ds=$this->demos[$concept]??[];if(count($ds)<$minimum)return null;$count=count($ds[0]['actions']);
+        foreach($ds as $d)if(count($d['actions'])!==$count)return null;$template=[];
+        for($i=0;$i<$count;$i++){
+            $first=$ds[0]['actions'][$i];foreach($ds as $d){$a=$d['actions'][$i];if($a->op!==$first->op||$a->risk!==$first->risk)return null;}
+            $args=[];foreach($first->args as $key=>$value){$replacement=null;
+                foreach($ds[0]['slots'] as $slot=>$slotValue){$matches=true;foreach($ds as $d){if(!array_key_exists($key,$d['actions'][$i]->args)||($d['actions'][$i]->args[$key]??null)!==($d['slots'][$slot]??null)){$matches=false;break;}}if($matches){$replacement='{'.$slot.'}';break;}}
+                if($replacement===null){foreach($ds as $d){if(($d['actions'][$i]->args[$key]??null)!==$value)return null;}$replacement=$value;}$args[$key]=$replacement;
+            }
+            $template[]=new Action($first->op,$args,$first->confidence,$first->risk);
+        }
+        return $template;
+    }
+}
+
 final class Hari
 {
-    public function __construct(public Lexicon $lexicon=new Lexicon(),public Memory $memory=new Memory(),public Habits $habits=new Habits(),public SkillBook $skills=new SkillBook()){}
+    public function __construct(public Lexicon $lexicon=new Lexicon(),public Memory $memory=new Memory(),public Habits $habits=new Habits(),public SkillBook $skills=new SkillBook(),public SkillInducer $inducer=new SkillInducer()){}
     public function teach(string $language,string $phrase,string $concept):void
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
+    /** @param array<string,scalar|null> $slots @param list<Action> $actions */ public function demonstrateSkill(string $concept,array $slots,array $actions):bool{$this->inducer->demonstrate($concept,$slots,$actions);$template=$this->inducer->induce($concept);if($template===null)return false;$this->skills->teach($concept,$template);return true;}
     /** @param array<string,scalar|null> $slots @return list<Action>|null */
     public function plan(string $language,string $phrase,array $slots):?array
     { $concept=$this->lexicon->resolve($language,$phrase); return $concept===null?null:$this->skills->plan($concept,$slots); }
