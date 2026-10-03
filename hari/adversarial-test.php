@@ -11,14 +11,14 @@ $tests=[];
 
 $tests['negated wording cannot ride fuzzy similarity into execution']=function():void{
     $h=new Hari();
-    $h->teach('en','call','call');
+    $h->teach('ne','फोन गर','call');
     $h->teachSkill('call',[new Action('CALL',['person'=>'{person}'],.99,Risk::External)]);
 
-    if($h->lexicon->resolve('en','do not call')!=='call'){
-        throw new RuntimeException('fixture no longer exercises fuzzy collision');
-    }
-
-    eq(null,$h->plan('en','do not call',['person'=>'Mom']));
+    // PHP similar_text() scores these opposite meanings at ~91.4%.
+    // Interpretation may notice the lexical similarity, but execution requires
+    // an exact taught intent or a separately learned semantic pattern.
+    eq('call',$h->lexicon->resolve('ne','फोन नगर'));
+    eq(null,$h->plan('ne','फोन नगर',['person'=>'Mom']));
 };
 
 $tests['explicit correction supersedes the executable skill']=function():void{
