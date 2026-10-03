@@ -88,6 +88,20 @@ $tests['interpretation explicitly distinguishes known ask and unknown']=function
     eq('unknown',$h->interpret('ne','पूर्ण अपरिचित कुरा')['status']);
 };
 
+
+$tests['tampered life state is rejected']=function(){
+    $p=sys_get_temp_dir().'/hari-tamper-'.bin2hex(random_bytes(3)).'.json';
+    try{
+        $h=new Hari();$h->teach('ne','पानी','water');$h->tick(7);$h->save($p);
+        $x=json_decode((string)file_get_contents($p),true,flags:JSON_THROW_ON_ERROR);
+        $x['body']['age']=999;
+        file_put_contents($p,json_encode($x,JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION|JSON_THROW_ON_ERROR));
+        $rejected=false;
+        try{Hari::load($p);}catch(RuntimeException $e){$rejected=str_contains($e->getMessage(),'checksum');}
+        ok($rejected);
+    }finally{@unlink($p);}
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
