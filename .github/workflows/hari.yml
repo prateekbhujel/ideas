@@ -1,0 +1,20 @@
+name: hari
+on:
+  push:
+    branches: [hari-lab]
+    paths: ['hari/**', '.github/workflows/hari.yml']
+  pull_request:
+    paths: ['hari/**', '.github/workflows/hari.yml']
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with: { php-version: '${{ matrix.php }}', coverage: none }
+      - run: php -l hari/core.php
+      - run: php -l hari/tests.php
+      - run: php hari/tests.php
