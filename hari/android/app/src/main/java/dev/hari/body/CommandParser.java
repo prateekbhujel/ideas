@@ -79,9 +79,12 @@ public final class CommandParser {
 
     private static String stripQuotes(String x) {
         String s = x.trim();
-        if (s.length() >= 2 && ((s.startsWith(""") && s.endsWith("""))
-                || (s.startsWith("'") && s.endsWith("'")))) {
-            return s.substring(1, s.length() - 1).trim();
+        if (s.length() >= 2) {
+            char first = s.charAt(0);
+            char last = s.charAt(s.length() - 1);
+            if ((first == 34 && last == 34) || (first == 39 && last == 39)) {
+                return s.substring(1, s.length() - 1).trim();
+            }
         }
         return s;
     }
