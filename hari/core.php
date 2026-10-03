@@ -146,8 +146,8 @@ final class Executor
         foreach($plan as $i=>$a){
             if($a->confidence<.70)return ['ok'=>false,'at'=>$i,'why'=>'uncertain'];
             if($a->risk===Risk::External && !in_array($i,$confirmed,true))return ['ok'=>false,'at'=>$i,'why'=>'confirm'];
-            $this->done[]=$a;
         }
+        foreach($plan as $a)$this->done[]=$a;
         return ['ok'=>true,'at'=>null,'why'=>null];
     }
     /** @return list<Action> */ public function done():array{return $this->done;}
