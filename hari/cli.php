@@ -37,7 +37,9 @@ try{
         'interpret'=>interpret($hari,$command),
         'age'=>ageHari($hari,$command),
         'demonstrate_skill'=>demonstrateSkill($hari,$command),
+        'demonstrate_utterance'=>demonstrateUtterance($hari,$command),
         'plan'=>plan($hari,$command),
+        'plan_utterance'=>planUtterance($hari,$command),
         'tool_add'=>toolAdd($hari,$command),
         'tool_record'=>toolRecord($hari,$command),
         'tool_choose'=>toolChoose($hari,$command),
@@ -103,6 +105,20 @@ function demonstrateSkill(Hari $h,array $c):array
     if(!is_array($rows)||$rows===[])throw new InvalidArgumentException('actions required');
     $actions=array_map('actionFromArray',$rows);
     return ['learned'=>$h->demonstrateSkill($concept,$slots,$actions)];
+}
+
+/** @param array<string,mixed> $c */
+function demonstrateUtterance(Hari $h,array $c):array
+{
+    $slots=is_array($c['slots']??null)?$c['slots']:[];
+    return ['learned'=>$h->demonstrateUtterance(requiredString($c,'language'),requiredString($c,'utterance'),requiredString($c,'concept'),$slots)];
+}
+
+/** @param array<string,mixed> $c */
+function planUtterance(Hari $h,array $c):?array
+{
+    $actions=$h->planUtterance(requiredString($c,'language'),requiredString($c,'utterance'),(float)($c['minimum_confidence']??.90));
+    return $actions===null?null:array_map('actionToArray',$actions);
 }
 
 /** @param array<string,mixed> $c */
