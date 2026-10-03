@@ -26,6 +26,13 @@ try{
     $plan=run(['op'=>'plan','language'=>'ne','phrase'=>'देखिने फोन','slots'=>['person'=>'Dad']]);
     if(($plan['result'][1]['op']??null)!=='VIDEO_CALL'||($plan['result'][1]['args']['person']??null)!=='Dad')fail('generalized plan failed');
 
+    $u1=run(['op'=>'demonstrate_utterance','language'=>'ne','utterance'=>'प्रतीकलाई देखिने फोन गर','concept'=>'video_call','slots'=>['person'=>'प्रतीक']]);
+    if(($u1['result']['learned']??null)!==false)fail('utterance learned too early');
+    $u2=run(['op'=>'demonstrate_utterance','language'=>'ne','utterance'=>'आमालाई देखिने फोन गर','concept'=>'video_call','slots'=>['person'=>'आमा']]);
+    if(($u2['result']['learned']??null)!==true)fail('utterance pattern was not learned');
+    $natural=run(['op'=>'plan_utterance','language'=>'ne','utterance'=>'बुबालाई देखिने फोन गर']);
+    if(($natural['result'][1]['args']['person']??null)!=='बुबा')fail('utterance slot extraction failed');
+
     run(['op'=>'tool_add','name'=>'local','capabilities'=>['image'],'cost'=>0,'reliability'=>.75,'local'=>true]);
     run(['op'=>'tool_add','name'=>'expert','capabilities'=>['image'],'cost'=>.5,'reliability'=>.90,'local'=>false]);
     for($i=0;$i<6;$i++){run(['op'=>'tool_record','name'=>'local','success'=>false]);run(['op'=>'tool_record','name'=>'expert','success'=>true]);}
