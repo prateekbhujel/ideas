@@ -80,6 +80,14 @@ $tests['fuzzy language may be understood but cannot trigger a machine action bel
     eq(null,$h->plan('ne','देखिने खाना',['person'=>'Mom']));
 };
 
+
+$tests['interpretation explicitly distinguishes known ask and unknown']=function(){
+    $h=new Hari();$h->teach('ne','देखिने फोन','video_call');
+    eq('known',$h->interpret('ne','देखिने फोन')['status']);
+    eq('ask',$h->interpret('ne','देखिने खाना')['status']);
+    eq('unknown',$h->interpret('ne','पूर्ण अपरिचित कुरा')['status']);
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
