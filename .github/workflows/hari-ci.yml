@@ -20,9 +20,15 @@ jobs:
           php-version: ${{ matrix.php }}
           coverage: none
       - name: Lint
-        run: php -l hari/core.php && php -l hari/tests.php
-      - name: Test
+        run: |
+          php -l hari/core.php
+          php -l hari/tests.php
+          php -l hari/cli.php
+          php -l hari/cli-test.php
+          php -l hari/demo.php
+      - name: Core tests
         run: php hari/tests.php
-
+      - name: Protocol test
+        run: php hari/cli-test.php
       - name: End-to-end demo
         run: php hari/demo.php
