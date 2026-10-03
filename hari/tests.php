@@ -72,6 +72,14 @@ $tests['partial learning survives restart and can finish later']=function(){
     }finally{@unlink($p);}
 };
 
+
+$tests['fuzzy language may be understood but cannot trigger a machine action below execution certainty']=function(){
+    $h=new Hari();$h->teach('ne','देखिने फोन','video_call');
+    $h->teachSkill('video_call',[new Action('VIDEO_CALL',['person'=>'{person}'],.95,Risk::External)]);
+    eq('video_call',$h->lexicon->resolve('ne','देखिने खाना'));
+    eq(null,$h->plan('ne','देखिने खाना',['person'=>'Mom']));
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
