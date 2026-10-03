@@ -183,12 +183,12 @@ function actionFromArray(array $row):Action
 {
     $risk=Risk::from((int)($row['risk']??0));
     $args=is_array($row['args']??null)?$row['args']:[];
-    return new Action(requiredString($row,'op'),$args,(float)($row['confidence']??1),$risk);
+    return new Action(requiredString($row,'op'),$args,(float)($row['confidence']??1),$risk,is_array($row['requires']??null)?$row['requires']:[]);
 }
 
 function actionToArray(Action $a):array
 {
-    return ['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value];
+    return ['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value,'requires'=>$a->requires];
 }
 
 /** @param array<string,mixed> $row */

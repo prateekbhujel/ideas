@@ -22,6 +22,15 @@ final class Lexicon
     }
 
     /** @return array{concept:string,confidence:float}|null */
+    public function resolveExactDetailed(string $language,string $phrase):?array
+    {
+        $key=$this->key($language,$phrase);
+        return isset($this->map[$key])
+            ? ['concept'=>$this->map[$key]['concept'],'confidence'=>1.0]
+            : null;
+    }
+
+    /** @return array{concept:string,confidence:float}|null */
     public function resolveDetailed(string $language,string $phrase):?array
     {
         $key=$this->key($language,$phrase);
@@ -122,25 +131,67 @@ final class Memory
 
 final class Habits
 {
-    /** @var array<string,array<string,int>> */
+    /** @var array<string,array<string,float>> */
     private array $counts=[];
-    public function observe(string $context,string $choice): void { $this->counts[$context][$choice]=($this->counts[$context][$choice]??0)+1; }
+
+    public function __construct(private float $decay=.90)
+    {
+        if($decay<=0||$decay>1)throw new \InvalidArgumentException('habit decay must be in (0,1]');
+    }
+
+    public function observe(string $context,string $choice): void
+    {
+        foreach($this->counts[$context]??[] as $name=>$weight)$this->counts[$context][$name]=$weight*$this->decay;
+        $this->counts[$context][$choice]=($this->counts[$context][$choice]??0.0)+1.0;
+    }
+
+    public function correct(string $context,string $choice):void
+    {
+        foreach($this->counts[$context]??[] as $name=>$weight)$this->counts[$context][$name]=$name===$choice?$weight*.25:$weight*.05;
+        $this->counts[$context][$choice]=($this->counts[$context][$choice]??0.0)+3.0;
+    }
+
     /** @return array{choice:string,confidence:float}|null */
     public function predict(string $context,int $minimum=3): ?array
     {
-        $x=$this->counts[$context]??[]; $n=array_sum($x); if($n<$minimum)return null; arsort($x); $c=(string)array_key_first($x);
-        return ['choice'=>$c,'confidence'=>(($x[$c]+1)/($n+count($x)))];
+        $x=$this->counts[$context]??[];$n=array_sum($x);if($n<$minimum)return null;arsort($x);$c=(string)array_key_first($x);
+        return ['choice'=>$c,'confidence'=>$n>0?$x[$c]/$n:0.0];
     }
-    /** @return array<string,array<string,int>> */ public function export():array{return $this->counts;}
-    /** @param array<string,array<string,int>> $x */ public static function import(array $x):self{$h=new self();$h->counts=$x;return $h;}
+
+    /** @return array{decay:float,counts:array<string,array<string,float>>} */
+    public function export():array{return ['decay'=>$this->decay,'counts'=>$this->counts];}
+
+    /** @param array<string,mixed> $x */
+    public static function import(array $x):self
+    {
+        if(isset($x['counts'])&&is_array($x['counts'])){
+            $h=new self((float)($x['decay']??.90));$rows=$x['counts'];
+        }else{
+            $h=new self();$rows=$x;
+        }
+        foreach($rows as $context=>$choices){
+            if(!is_array($choices))continue;
+            foreach($choices as $choice=>$weight)$h->counts[(string)$context][(string)$choice]=(float)$weight;
+        }
+        return $h;
+    }
 }
 
 enum Risk:int { case Read=0; case Reversible=1; case External=2; }
 
 final readonly class Action
 {
-    /** @param array<string,scalar|null> $args */
-    public function __construct(public string $op, public array $args=[], public float $confidence=1.0, public Risk $risk=Risk::Read) {}
+    /**
+     * @param array<string,scalar|null> $args
+     * @param list<array{step:int,field:string,equals:scalar|null}> $requires
+     */
+    public function __construct(
+        public string $op,
+        public array $args=[],
+        public float $confidence=1.0,
+        public Risk $risk=Risk::Read,
+        public array $requires=[],
+    ) {}
 }
 
 final class Executor
@@ -224,12 +275,12 @@ final class SkillBook
     public function plan(string $concept,array $slots):?array
     {
         $template=$this->skills[$concept]??null;if($template===null)return null;$out=[];
-        foreach($template as $a){$args=[];foreach($a->args as $k=>$v){if(is_string($v)&&preg_match('/^\{(.+)\}$/',$v,$m)){$v=$slots[$m[1]]??null;if($v===null)return null;}$args[$k]=$v;}$out[]=new Action($a->op,$args,$a->confidence,$a->risk);}return $out;
+        foreach($template as $a){$args=[];foreach($a->args as $k=>$v){if(is_string($v)&&preg_match('/^\{(.+)\}$/',$v,$m)){$v=$slots[$m[1]]??null;if($v===null)return null;}$args[$k]=$v;}$out[]=new Action($a->op,$args,$a->confidence,$a->risk,$a->requires);}return $out;
     }
     /** @return array<string,list<array<string,mixed>>> */ public function export():array
-    { $out=[];foreach($this->skills as $c=>$as){$out[$c]=array_map(fn($a)=>['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value],$as);}return $out; }
+    { $out=[];foreach($this->skills as $c=>$as){$out[$c]=array_map(fn($a)=>['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value,'requires'=>$a->requires],$as);}return $out; }
     /** @param array<string,list<array<string,mixed>>> $data */ public static function import(array $data):self
-    { $b=new self();foreach($data as $c=>$as){$b->skills[$c]=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0))),$as);}return $b; }
+    { $b=new self();foreach($data as $c=>$as){$b->skills[$c]=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0)),is_array($a['requires']??null)?$a['requires']:[]),$as);}return $b; }
 }
 
 final class SkillInducer
@@ -237,13 +288,14 @@ final class SkillInducer
     /** @var array<string,list<array{slots:array<string,scalar|null>,actions:list<Action>}>> */ private array $demos=[];
     /** @param array<string,scalar|null> $slots @param list<Action> $actions */
     public function demonstrate(string $concept,array $slots,array $actions):void{$this->demos[$concept][]=['slots'=>$slots,'actions'=>$actions];}
+    public function forget(string $concept):void{unset($this->demos[$concept]);}
     /** @return list<Action>|null */
     public function induce(string $concept,int $minimum=2):?array
     {
         $ds=$this->demos[$concept]??[];if(count($ds)<$minimum)return null;$count=count($ds[0]['actions']);
         foreach($ds as $d)if(count($d['actions'])!==$count)return null;$template=[];
         for($i=0;$i<$count;$i++){
-            $first=$ds[0]['actions'][$i];foreach($ds as $d){$a=$d['actions'][$i];if($a->op!==$first->op||$a->risk!==$first->risk)return null;}
+            $first=$ds[0]['actions'][$i];foreach($ds as $d){$a=$d['actions'][$i];if($a->op!==$first->op||$a->risk!==$first->risk||$a->requires!==$first->requires)return null;}
             $args=[];foreach($first->args as $key=>$value){$replacement=null;
                 foreach($ds[0]['slots'] as $slot=>$slotValue){$matches=true;foreach($ds as $d){if(!array_key_exists($key,$d['actions'][$i]->args)||($d['actions'][$i]->args[$key]??null)!==($d['slots'][$slot]??null)){$matches=false;break;}}if($matches){$replacement='{'.$slot.'}';break;}}
                 if($replacement===null){foreach($ds as $d){if(($d['actions'][$i]->args[$key]??null)!==$value)return null;}$replacement=$value;}$args[$key]=$replacement;
@@ -260,7 +312,7 @@ final class SkillInducer
             foreach($demos as $demo){
                 $out[$concept][]=[
                     'slots'=>$demo['slots'],
-                    'actions'=>array_map(fn(Action $a)=>['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value],$demo['actions']),
+                    'actions'=>array_map(fn(Action $a)=>['op'=>$a->op,'args'=>$a->args,'confidence'=>$a->confidence,'risk'=>$a->risk->value,'requires'=>$a->requires],$demo['actions']),
                 ];
             }
         }
@@ -272,7 +324,7 @@ final class SkillInducer
         $i=new self();
         foreach($data as $concept=>$demos){
             foreach($demos as $demo){
-                $actions=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0))),$demo['actions']??[]);
+                $actions=array_map(fn($a)=>new Action((string)$a['op'],$a['args']??[],(float)($a['confidence']??1),Risk::from((int)($a['risk']??0)),is_array($a['requires']??null)?$a['requires']:[]),$demo['actions']??[]);
                 if($actions!==[])$i->demonstrate((string)$concept,is_array($demo['slots']??null)?$demo['slots']:[],$actions);
             }
         }
@@ -381,6 +433,13 @@ final class Hari
     public function teach(string $language,string $phrase,string $concept):void
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
+    /** @param list<Action> $template */
+    public function correctSkill(string $concept,array $template,string $reason='user correction'):void
+    {
+        $this->skills->teach($concept,$template);
+        $this->inducer->forget($concept);
+        $this->memory->remember("skill correction: {$concept}: {$reason}",['skill',$concept,'correction'],.95);
+    }
     /** @param array<string,scalar|null> $slots @param list<Action> $actions */ public function demonstrateSkill(string $concept,array $slots,array $actions):bool{$this->inducer->demonstrate($concept,$slots,$actions);$template=$this->inducer->induce($concept);if($template===null)return false;$this->skills->teach($concept,$template);return true;}
     /** @param array<string,scalar|null> $slots */
     public function demonstrateUtterance(string $language,string $utterance,string $concept,array $slots):bool
@@ -399,9 +458,9 @@ final class Hari
     /** @param array<string,scalar|null> $slots @return list<Action>|null */
     public function plan(string $language,string $phrase,array $slots,float $minimumIntentConfidence=.90):?array
     {
-        $interpretation=$this->interpret($language,$phrase,$minimumIntentConfidence);
-        if($interpretation['status']!=='known'||$interpretation['concept']===null)return null;
-        return $this->skills->plan($interpretation['concept'],$slots);
+        $resolution=$this->lexicon->resolveExactDetailed($language,$phrase);
+        if($resolution===null||$resolution['confidence']<$minimumIntentConfidence)return null;
+        return $this->skills->plan($resolution['concept'],$slots);
     }
     /** @return list<Action>|null */
     public function planUtterance(string $language,string $utterance,float $minimumConfidence=.90):?array

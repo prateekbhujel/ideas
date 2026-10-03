@@ -1,0 +1,138 @@
+HARI
+
+WHY THIS EXISTS
+
+HARI is an experiment in long-lived personal adaptation.
+
+The claim is NOT:
+- memory is novel
+- agents using tools are novel
+- phone automation by demonstration is novel
+- episodic/procedural memory is novel
+- a skill library is novel
+
+Those ideas have strong predecessors.
+
+The question we care about is harder:
+
+Can a small persistent system accumulate experience with one person so that the person's work decreases over time, while the system remains correct when preferences, language, apps, devices and circumstances change?
+
+That is the research target.
+
+RESEARCH THAT CHANGED THE DESIGN
+
+SUGILITE / PUMICE / APPINITE:
+Teaching smartphone procedures and concepts through language plus demonstration already exists. HARI must go beyond “user teaches phone automation.”
+
+CoALA and Soar:
+Modular memory, structured actions, procedural memory, episodic memory and cognitive-agent architecture are established territory.
+
+Voyager and Reflexion:
+Reusable skills, environment feedback and learning without continually updating model weights are established ideas.
+
+LaMP:
+Simple retrieval of user history is already a serious personalization baseline. HARI has to beat that kind of boring baseline, not a non-personalized straw man.
+
+MemoryArena:
+Remembering facts is insufficient. Memory has to improve later decisions in interdependent tasks across sessions.
+
+MobileMem:
+Year-scale, evolving mobile experience and temporal knowledge update are already explicit research problems.
+
+PAHF and preference-aware memory update work:
+User preferences drift. Clarification, feedback and updating old preferences are central, not optional cleanup.
+
+WHAT HARI MUST PROVE
+
+1. Corrections supersede obsolete behavior without destroying unrelated learned behavior.
+2. Negated or uncertain requests do not accidentally become side effects.
+3. Later actions depend on verified results from earlier actions.
+4. A failed observation cannot be converted into a claimed success.
+5. Preference changes are learned quickly enough to matter.
+6. Temporary exceptions do not rewrite a stable preference too aggressively.
+7. Skills transfer to new entities/devices/apps without replaying every demonstration.
+8. The accumulated system beats a simple same-history retrieval/recency baseline on useful longitudinal tasks.
+9. Improvements survive process/device restart.
+10. Cost, storage and latency stay small enough for ordinary consumer hardware.
+
+CURRENT ENGINEERING PRINCIPLES
+
+Human language is not machine execution.
+
+Fuzzy language may suggest an interpretation, but fuzzy similarity alone is never authority to perform an action.
+
+Side effects require:
+- sufficient semantic confidence
+- explicit permission where appropriate
+- satisfied preconditions
+- an available device/tool capability
+- observed execution result
+- postcondition verification where the environment can provide it
+
+Preferences are time-sensitive evidence, not eternal vote counts.
+
+Corrections are first-class events.
+
+The phone is the first body, not the identity.
+The same personal state should later be usable through a watch, computer, TV or another device.
+
+WHAT EXISTS
+
+- taught vocabulary
+- learned utterance patterns
+- personal episodic memory with decay/reinforcement
+- adaptive habits/preferences
+- demonstrated skill induction
+- explicit skill correction
+- safe action confidence/confirmation gates
+- action dependencies on earlier machine evidence
+- learned tool routing
+- device capability routing
+- persistent life state
+- JSON protocols
+- multi-PHP CI
+- adversarial safety tests
+- cheap longitudinal preference benchmark
+
+WHAT IS NOT PROVEN
+
+HARI is not yet an intelligent personal assistant.
+It does not yet understand unrestricted Nepali.
+It does not yet learn a language from ordinary family conversation.
+It does not have a real Android body.
+It does not have human-like feelings or consciousness.
+It has not beaten a strong personalized LLM + retrieval baseline.
+It has not demonstrated year-scale learning.
+It has not demonstrated robust transfer across changing real apps.
+
+DO NOT HIDE THESE FAILURES.
+They are the experiment.
+
+NEXT PROOF
+
+Build a longitudinal simulator with hundreds/thousands of interactions containing:
+- stable habits
+- exceptions
+- explicit corrections
+- preference reversals
+- renamed contacts
+- unavailable devices
+- changed app capabilities
+- contradictory memories
+- delayed feedback
+
+Run HARI and simple baselines over exactly the same history.
+
+Measure:
+- task success
+- unsafe actions
+- clarification count
+- user corrections
+- adaptation lag after preference change
+- stale-memory errors
+- procedure reuse
+- compute/storage/latency
+
+If HARI cannot beat simple baselines there, do not spend money building a giant model around it.
+
+If it does, connect the same kernel to a real Android body and repeat with real users.

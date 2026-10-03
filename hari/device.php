@@ -181,11 +181,21 @@ final class MemoryDeviceDriver implements DeviceDriver
     /** @var list<Action> */
     private array $received = [];
 
+    /** @var array<string,array{ok:bool,data:array<string,scalar|null>,error:?string}> */
+    private array $responses = [];
+
     /** @param list<string> $failOperations */
     public function __construct(
         private readonly string $id,
         private array $failOperations = [],
     ) {}
+
+    /** @param array<string,scalar|null> $data */
+    public function when(string $operation,bool $ok,array $data=[],?string $error=null):self
+    {
+        $this->responses[$operation]=['ok'=>$ok,'data'=>$data,'error'=>$error];
+        return $this;
+    }
 
     public function deviceId(): string
     {
@@ -195,6 +205,12 @@ final class MemoryDeviceDriver implements DeviceDriver
     public function execute(Action $action): DeviceResult
     {
         $this->received[] = $action;
+
+        if(isset($this->responses[$action->op])){
+            $r=$this->responses[$action->op];
+            return new DeviceResult($r['ok'],$this->id,$action->op,$r['data'],$r['error']);
+        }
+
         if (in_array($action->op, $this->failOperations, true)) {
             return new DeviceResult(false, $this->id, $action->op, error: 'driver failure');
         }
@@ -257,6 +273,23 @@ final class DeviceRuntime
 
         $results = [];
         foreach ($prepared as $i => $step) {
+            foreach($step['action']->requires as $require){
+                $source=(int)($require['step']??-1);
+                $field=(string)($require['field']??'');
+                $expected=$require['equals']??true;
+                $prior=$results[$source]??null;
+
+                if(
+                    !$prior instanceof DeviceResult||
+                    !$prior->ok||
+                    $field===''||
+                    !array_key_exists($field,$prior->data)||
+                    $prior->data[$field]!==$expected
+                ){
+                    return ['ok'=>false,'at'=>$i,'why'=>'dependency','results'=>$results];
+                }
+            }
+
             $result = $step['driver']->execute($step['action']);
             $results[] = $result;
             $this->mesh->record($step['node']->id, $step['action']->op, $result->ok);

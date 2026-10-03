@@ -98,6 +98,7 @@ function routeAction(DeviceMesh $mesh, array $c): ?array
         $args,
         (float)($row['confidence'] ?? 1),
         Risk::from((int)($row['risk'] ?? 0)),
+        is_array($row['requires'] ?? null) ? $row['requires'] : [],
     );
 
     $node = $mesh->route($action, isset($c['preferred']) ? (string)$c['preferred'] : null);

@@ -31,6 +31,8 @@ jobs:
           php -l hari/device-cli.php
           php -l hari/device-cli-test.php
           php -l hari/integration-test.php
+          php -l hari/adversarial-test.php
+          php -l hari/research-bench.php
       - name: Core tests
         run: php hari/tests.php
       - name: Protocol test
@@ -41,5 +43,9 @@ jobs:
         run: php hari/device-cli-test.php
       - name: Learned-language integration
         run: php hari/integration-test.php
+      - name: Adversarial behavior
+        run: php hari/adversarial-test.php
+      - name: Longitudinal sanity benchmark
+        run: php hari/research-bench.php
       - name: End-to-end demo
         run: php hari/demo.php
