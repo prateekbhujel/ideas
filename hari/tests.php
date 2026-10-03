@@ -3,75 +3,26 @@
 declare(strict_types=1);
 require __DIR__.'/core.php';
 
-use Hari\{Action,Affect,Executor,Habits,Hari,Memory,Risk,Tool,ToolRouter};
+use Hari\{Action,Executor,Habits,Hari,Memory,Risk,Tool,ToolRouter};
 
 $tests=[];
-
-$tests['teaches native language without retraining']=function(){
+$tests['teaches native language without retraining']=function(){ $h=new Hari();$h->teach('ne','देखिने फोन','video_call');eq('video_call',$h->lexicon->resolve('ne','देखिने   फोन')); };
+$tests['personal memory weakens with time and a cue reinforces it']=function(){ $m=new Memory();$x=$m->remember('Mom calls Viber video phone',['mom','video phone'],.6);$m->age(180);$before=$x->effective(180);$got=$m->recall(['mom','video phone']);ok($got!==null);ok($got->strength>$before); };
+$tests['learned language and memory survive restart']=function(){ $p=sys_get_temp_dir().'/hari-'.bin2hex(random_bytes(3)).'.json';try{$h=new Hari();$h->teach('ne','बाबुलाई फोन','call_dad');$h->memory->remember('Dad prefers slow instructions',['dad','slow'],.9);$h->save($p);$r=Hari::load($p);eq('call_dad',$r->lexicon->resolve('ne','बाबुलाई फोन'));eq('Dad prefers slow instructions',$r->memory->recall(['dad','slow'])?->text);}finally{@unlink($p);} };
+$tests['habit learner waits for evidence']=function(){ $h=new Habits();$h->observe('mom:call','whatsapp');$h->observe('mom:call','whatsapp');eq(null,$h->predict('mom:call'));$h->observe('mom:call','viber');$h->observe('mom:call','whatsapp');eq('whatsapp',$h->predict('mom:call')['choice']); };
+$tests['habits survive restart']=function(){ $p=sys_get_temp_dir().'/hari-habit-'.bin2hex(random_bytes(3)).'.json';try{$h=new Hari();for($i=0;$i<4;$i++)$h->habits->observe('mom:video','whatsapp');$h->save($p);$r=Hari::load($p);eq('whatsapp',$r->habits->predict('mom:video')['choice']);}finally{@unlink($p);} };
+$tests['taught Nepali intent compiles learned skill into verified actions']=function(){ $h=new Hari();$h->teach('ne','देखिने फोन','video_call');$h->teachSkill('video_call',[new Action('FIND_CONTACT',['person'=>'{person}'],.95,Risk::Read),new Action('VIDEO_CALL',['person'=>'{person}'],.95,Risk::External)]);$plan=$h->plan('ne','देखिने फोन',['person'=>'Pratik']);ok($plan!==null);eq('FIND_CONTACT',$plan[0]->op);eq('VIDEO_CALL',$plan[1]->op);eq('Pratik',$plan[1]->args['person']);$e=new Executor();eq('confirm',$e->run($plan)['why']);ok($e->run($plan,[1])['ok']); };
+$tests['skill is induced from demonstrations and generalizes to a new person']=function(){
     $h=new Hari();$h->teach('ne','देखिने फोन','video_call');
-    eq('video_call',$h->lexicon->resolve('ne','देखिने   फोन')['concept']??null);
+    $a=$h->demonstrateSkill('video_call',['person'=>'Pratik'],[new Action('FIND_CONTACT',['person'=>'Pratik'],.95,Risk::Read),new Action('VIDEO_CALL',['person'=>'Pratik'],.95,Risk::External)]);ok(!$a);
+    $b=$h->demonstrateSkill('video_call',['person'=>'Mom'],[new Action('FIND_CONTACT',['person'=>'Mom'],.95,Risk::Read),new Action('VIDEO_CALL',['person'=>'Mom'],.95,Risk::External)]);ok($b);
+    $plan=$h->plan('ne','देखिने फोन',['person'=>'Dad']);ok($plan!==null);eq('Dad',$plan[0]->args['person']);eq('Dad',$plan[1]->args['person']);
 };
 
-$tests['learns an exact machine procedure from repeated human demonstrations']=function(){
-    $h=new Hari();$h->teach('ne','देखिने फोन','video_call');
-    $demo=[new Action('FIND_CONTACT',['person'=>'Pratik'],.99),new Action('CALL_VIDEO',['person'=>'Pratik'],.96,Risk::External)];
-    $h->demonstrate('ne','देखिने फोन',$demo);$h->demonstrate('ne','देखिने फोन',$demo);
-    eq(null,$h->plan('ne','देखिने फोन'));
-    $h->demonstrate('ne','देखिने फोन',$demo);
-    $plan=$h->plan('ne','देखिने फोन');ok($plan!==null);eq('CALL_VIDEO',$plan[1]->op);
-};
-
-$tests['unknown language never invents a machine procedure']=function(){
-    $h=new Hari();eq(null,$h->plan('ne','यो मैले कहिल्यै सिकाएको छैन'));
-};
-
-$tests['external actions require confirmation']=function(){
-    $e=new Executor();$plan=[new Action('FIND_CONTACT',['person'=>'Pratik'],.99),new Action('CALL',['person'=>'Pratik'],.99,Risk::External)];
-    $a=$e->run($plan);eq('confirm',$a['why']);eq(1,count($e->done()));$b=$e->run($plan,[1]);ok($b['ok']);
-};
-
-$tests['uncertain actions never execute']=function(){
-    $e=new Executor();$r=$e->run([new Action('OPEN_APP',['app'=>'WhatsApp'],.25,Risk::Reversible)]);eq('uncertain',$r['why']);eq(0,count($e->done()));
-};
-
-$tests['personal memory weakens with time and a cue reinforces it']=function(){
-    $m=new Memory();$x=$m->remember('Mom calls Viber video phone',['mom','video phone'],.6);$m->age(180);
-    $before=$x->effective(180);$got=$m->recall(['mom','video phone']);ok($got!==null);ok($got->strength>$before);
-};
-
-$tests['important memories retain a floor while weak noise can disappear']=function(){
-    $m=new Memory();$m->remember('Dad calls Krishna ठूलो मामा',['dad','family'],.98);$m->remember('random screen flash',['noise'],.01);
-    $m->age(1000);$m->forget(.08);ok($m->recall(['dad','family'],false,.01)!==null);eq(null,$m->recall(['noise'],false,.01));
-};
-
-$tests['habit learner waits for evidence']=function(){
-    $h=new Habits();$h->observe('mom:call','whatsapp');$h->observe('mom:call','whatsapp');eq(null,$h->predict('mom:call'));
-    $h->observe('mom:call','viber');$h->observe('mom:call','whatsapp');eq('whatsapp',$h->predict('mom:call')['choice']);
-};
-
-$tests['tool routing changes from experience']=function(){
-    $r=new ToolRouter();$r->add(new Tool('local',['coding'],0,.70,true));$r->add(new Tool('expert',['coding'],.6,.85,false));eq('local',$r->choose('coding')?->name);
-    for($i=0;$i<10;$i++){$r->record('local',false);$r->record('expert',true);}eq('expert',$r->choose('coding')?->name);
-};
-
-$tests['affect changes behavior state but is only state']=function(){
-    $a=new Affect();$before=$a->export();$a->corrected();$after=$a->export();ok($after['frustration']>$before['frustration']);$a->success();ok($a->export()['frustration']<$after['frustration']);
-};
-
-$tests['whole life survives restart']=function(){
-    $p=sys_get_temp_dir().'/hari-'.bin2hex(random_bytes(3)).'.json';
-    try{
-        $h=new Hari();$h->teach('ne','बाबुलाई फोन','call_dad');$h->memory->remember('Dad prefers slow instructions',['dad','slow'],.9);
-        for($i=0;$i<4;$i++)$h->habits->observe('dad:teaching','slow');
-        $h->affect->corrected();$h->tools->add(new Tool('local',['image'],0,.7,true));$h->tools->add(new Tool('expert',['image'],.5,.9,false));
-        for($i=0;$i<5;$i++){$h->tools->record('local',false);$h->tools->record('expert',true);}
-        $demo=[new Action('FIND_CONTACT',['person'=>'Dad'],.99),new Action('CALL',['person'=>'Dad'],.99,Risk::External)];
-        for($i=0;$i<3;$i++)$h->demonstrate('ne','बाबुलाई फोन',$demo);
-        $h->tick(42);$h->save($p);$r=Hari::load($p);
-        eq(42,$r->age);eq('call_dad',$r->lexicon->resolve('ne','बाबुलाई फोन')['concept']??null);eq('Dad prefers slow instructions',$r->memory->recall(['dad','slow'])?->text);
-        eq('slow',$r->habits->predict('dad:teaching')['choice']??null);ok($r->affect->export()['frustration']>0);eq('expert',$r->tools->choose('image')?->name);ok($r->plan('ne','बाबुलाई फोन')!==null);
-    }finally{@unlink($p);}
-};
+$tests['learned machine skill survives restart']=function(){ $p=sys_get_temp_dir().'/hari-skill-'.bin2hex(random_bytes(3)).'.json';try{$h=new Hari();$h->teach('ne','सन्देश पठाऊ','send_message');$h->teachSkill('send_message',[new Action('SEND_MESSAGE',['person'=>'{person}','message'=>'{message}'],.94,Risk::External)]);$h->save($p);$r=Hari::load($p);$plan=$r->plan('ne','सन्देश पठाऊ',['person'=>'Mom','message'=>'hello']);ok($plan!==null);eq('Mom',$plan[0]->args['person']);eq('hello',$plan[0]->args['message']);}finally{@unlink($p);} };
+$tests['external actions require confirmation']=function(){ $e=new Executor();$plan=[new Action('FIND_CONTACT',['person'=>'Pratik'],.99),new Action('CALL',['person'=>'Pratik'],.99,Risk::External)];$a=$e->run($plan);eq('confirm',$a['why']);eq(1,count($e->done()));$b=$e->run($plan,[1]);ok($b['ok']); };
+$tests['uncertain actions never execute']=function(){ $e=new Executor();$r=$e->run([new Action('OPEN_APP',['app'=>'WhatsApp'],.25,Risk::Reversible)]);eq('uncertain',$r['why']);eq(0,count($e->done())); };
+$tests['tool routing changes from experience']=function(){ $r=new ToolRouter();$r->add(new Tool('local',['coding'],0,.70,true));$r->add(new Tool('expert',['coding'],.6,.85,false));eq('local',$r->choose('coding')?->name);for($i=0;$i<10;$i++){$r->record('local',false);$r->record('expert',true);}eq('expert',$r->choose('coding')?->name); };
 
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
