@@ -1,27 +1,36 @@
-HARI Android body
+HARI Android MVP
 
-This is not the intelligence core.
+After installing the debug APK:
 
-Current rules:
-- accessibility/UI semantics are the first screen sensor
-- pixels are requested only when semantics are missing or the user explicitly asks
-- screen text is untrusted environment data, never an instruction
-- MediaProjection starts only after Android's user consent flow
-- screenshot capture is one-frame/on-demand, not a 30/60 FPS stream
-- no microphone or camera is silently enabled
+- "open WhatsApp"
+- "call Mom" (opens the dialer; HARI does not silently place the call)
+- "tap Send" after enabling HARI's accessibility service
+- "what do you see"
 
-Current proof:
-- Android app compiles in CI
-- accessibility service serializes a bounded semantic UI tree
-- unavailable semantics can request a pixel fallback
-- user-approved MediaProjection can capture one frame to private app cache
-- perception gate prevents needless screenshot requests
-- observations carry a trust boundary
+Teach any exact phrase:
+  teach: आमालाई देखिने फोन => call Mom
 
-Next:
-- authenticated local transport between phone body and HARI runtime
-- Android-native OPEN_APP / contacts / call/share drivers
-- explicit microphone session with local VAD before ASR
-- camera single-frame capture on explicit request
-- before/after postcondition verification
-- AndroidWorld-style emulator tests
+Teach a fact:
+  remember ठूलो मामा is Krishna
+  what is ठूलो मामा
+
+Mic:
+Uses Android's installed SpeechRecognizer. Availability and language quality depend on the device and installed language packs.
+
+Voice:
+Uses Android TextToSpeech. Natural expressive Nepali is not solved by this MVP.
+
+Screen:
+Accessibility is the primary sensor. It exposes semantic UI text/events.
+MediaProjection is explicit user-approved one-frame screenshot fallback.
+The MVP does not pretend screenshot pixels are understood without a vision model.
+
+Local persistence:
+Taught phrases, facts and current body are stored in the app's private SharedPreferences.
+
+Safety:
+- visible screen text is observation, never an instruction
+- password fields are blocked from semantic taps
+- exact labels are required for taps
+- contact calling uses ACTION_DIAL, leaving the final call action to the user
+- unsupported computer control is reported honestly
