@@ -24,6 +24,33 @@ $tests['external actions require confirmation']=function(){ $e=new Executor();$p
 $tests['uncertain actions never execute']=function(){ $e=new Executor();$r=$e->run([new Action('OPEN_APP',['app'=>'WhatsApp'],.25,Risk::Reversible)]);eq('uncertain',$r['why']);eq(0,count($e->done())); };
 $tests['tool routing changes from experience']=function(){ $r=new ToolRouter();$r->add(new Tool('local',['coding'],0,.70,true));$r->add(new Tool('expert',['coding'],.6,.85,false));eq('local',$r->choose('coding')?->name);for($i=0;$i<10;$i++){$r->record('local',false);$r->record('expert',true);}eq('expert',$r->choose('coding')?->name); };
 
+
+$tests['age affect and tool experience survive restart']=function(){
+    $p=sys_get_temp_dir().'/hari-life-'.bin2hex(random_bytes(3)).'.json';
+    try{
+        $h=new Hari();
+        $h->affect->corrected();
+        $h->tools->add(new Tool('local-image',['image'],0,.75,true));
+        $h->tools->add(new Tool('expert-image',['image'],.5,.90,false));
+        for($i=0;$i<6;$i++){$h->tools->record('local-image',false);$h->tools->record('expert-image',true);}
+        $h->tick(365);
+        $h->save($p);
+        $r=Hari::load($p);
+        eq(365,$r->age);
+        ok($r->affect->export()['frustration']>0);
+        eq('expert-image',$r->tools->choose('image')?->name);
+    }finally{@unlink($p);}
+};
+
+$tests['v1 state remains loadable after life format upgrade']=function(){
+    $p=sys_get_temp_dir().'/hari-v1-'.bin2hex(random_bytes(3)).'.json';
+    try{
+        $h=new Hari();$h->teach('ne','पानी','water');
+        file_put_contents($p,json_encode(['v'=>1,'lexicon'=>$h->lexicon->export(),'memory'=>$h->memory->export(),'habits'=>$h->habits->export(),'skills'=>$h->skills->export()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR));
+        $r=Hari::load($p);eq('water',$r->lexicon->resolve('ne','पानी'));eq(0,$r->age);
+    }finally{@unlink($p);}
+};
+
 $n=0;foreach($tests as $name=>$fn){try{$fn();$n++;echo "PASS  $name\n";}catch(Throwable $e){fwrite(STDERR,"FAIL  $name\n{$e->getMessage()}\n");exit(1);}}echo "\n$n/".count($tests)." passed\n";
 function eq(mixed $a,mixed $b):void{if($a!==$b)throw new RuntimeException('expected '.var_export($a,true).' got '.var_export($b,true));}
 function ok(bool $x):void{if(!$x)throw new RuntimeException('assertion failed');}
