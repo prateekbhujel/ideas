@@ -318,10 +318,13 @@ final class Hari
     { if($ticks<0)throw new \InvalidArgumentException('life cannot move backwards');$this->age+=$ticks;$this->memory->age($ticks); }
     public function save(string $path):void
     {
-        $payload=json_encode([
-            'v'=>3,'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
+        $body=[
+            'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
             'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'inducer'=>$this->inducer->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),
-        ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        ];
+        $flags=JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION|JSON_THROW_ON_ERROR;
+        $bodyJson=json_encode($body,$flags);
+        $payload=json_encode(['v'=>4,'body'=>$body,'sha256'=>hash('sha256',$bodyJson)],$flags);
         $dir=dirname($path);
         if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new \RuntimeException('state directory');
         $tmp=$path.'.tmp.'.bin2hex(random_bytes(4));
@@ -339,7 +342,15 @@ final class Hari
             Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),new SkillInducer(),
             Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
         );
-        if($v!==3)throw new \RuntimeException('unsupported state');
+        if($v===4){
+            $body=$x['body']??null;$checksum=(string)($x['sha256']??'');
+            if(!is_array($body)||$checksum==='')throw new \RuntimeException('invalid state envelope');
+            $bodyJson=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION|JSON_THROW_ON_ERROR);
+            if(!hash_equals($checksum,hash('sha256',$bodyJson)))throw new \RuntimeException('state checksum mismatch');
+            $x=$body;
+        }elseif($v!==3){
+            throw new \RuntimeException('unsupported state');
+        }
         return new self(
             Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),SkillInducer::import($x['inducer']??[]),
             Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
