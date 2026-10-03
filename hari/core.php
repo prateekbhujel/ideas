@@ -280,6 +280,91 @@ final class SkillInducer
     }
 }
 
+final class UtteranceBook
+{
+    /** @var array<string,array<string,array{concept:string,seen:int}>> */
+    private array $patterns=[];
+
+    /** @param array<string,scalar|null> $slots */
+    public function demonstrate(string $language,string $utterance,string $concept,array $slots,int $minimum=2):bool
+    {
+        $language=strtolower(trim($language));$utterance=$this->normalize($utterance);
+        if($language===''||$utterance===''||$concept===''||$slots===[])throw new \InvalidArgumentException('language utterance concept and slots required');
+
+        $rows=[];
+        foreach($slots as $name=>$surface){
+            if(!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/',(string)$name))throw new \InvalidArgumentException('invalid slot name');
+            $surface=$this->normalize((string)$surface);
+            if($surface===''||!str_contains($utterance,$surface))throw new \InvalidArgumentException("slot {$name} is not present in utterance");
+            $rows[]=['name'=>(string)$name,'surface'=>$surface];
+        }
+        usort($rows,fn($a,$b)=>strlen($b['surface'])<=>strlen($a['surface']));
+        $pattern=$utterance;
+        foreach($rows as $row)$pattern=str_replace($row['surface'],'{'.$row['name'].'}',$pattern);
+
+        $entry=$this->patterns[$language][$pattern]??null;
+        if($entry!==null&&$entry['concept']!==$concept)throw new \RuntimeException('conflicting utterance meaning');
+        $seen=($entry['seen']??0)+1;
+        $this->patterns[$language][$pattern]=['concept'=>$concept,'seen'=>$seen];
+        return $seen>=$minimum;
+    }
+
+    /** @return array{concept:string,slots:array<string,string>,confidence:float,pattern:string}|null */
+    public function parse(string $language,string $utterance,int $minimumSeen=2):?array
+    {
+        $language=strtolower(trim($language));$utterance=$this->normalize($utterance);
+        $best=null;$bestSpecificity=-1;$ambiguous=false;
+
+        foreach($this->patterns[$language]??[] as $pattern=>$entry){
+            if($entry['seen']<$minimumSeen)continue;
+            [$regex,$slotNames]=$this->compile($pattern);
+            if(!preg_match($regex,$utterance,$matches))continue;
+
+            $slots=[];
+            foreach($slotNames as $name)$slots[$name]=$this->normalize((string)($matches[$name]??''));
+            if(in_array('',$slots,true))continue;
+
+            $static=preg_replace('/\{[A-Za-z_][A-Za-z0-9_]*\}/','',$pattern)??'';
+            $specificity=strlen($static);
+            $confidence=min(1.0,.80+min(.19,$entry['seen']*.05));
+
+            if($specificity>$bestSpecificity){
+                $best=['concept'=>$entry['concept'],'slots'=>$slots,'confidence'=>$confidence,'pattern'=>$pattern];
+                $bestSpecificity=$specificity;$ambiguous=false;
+            }elseif($specificity===$bestSpecificity&&$best!==null&&$best['concept']!==$entry['concept']){
+                $ambiguous=true;
+            }
+        }
+        return $ambiguous?null:$best;
+    }
+
+    /** @return array<string,array<string,array{concept:string,seen:int}>> */
+    public function export():array{return $this->patterns;}
+
+    /** @param array<string,array<string,array{concept:string,seen:int}>> $data */
+    public static function import(array $data):self{$b=new self();$b->patterns=$data;return $b;}
+
+    /** @return array{0:string,1:list<string>} */
+    private function compile(string $pattern):array
+    {
+        $parts=preg_split('/(\{[A-Za-z_][A-Za-z0-9_]*\})/',$pattern,-1,PREG_SPLIT_DELIM_CAPTURE|PREG_SPLIT_NO_EMPTY)?:[];
+        $regex='~^';$names=[];
+        foreach($parts as $part){
+            if(preg_match('/^\{([A-Za-z_][A-Za-z0-9_]*)\}$/',$part,$m)){
+                if(in_array($m[1],$names,true))throw new \RuntimeException('repeated utterance slot is unsupported');
+                $names[]=$m[1];$regex.='(?P<'.$m[1].'>.+?)';
+            }else{$regex.=preg_quote($part,'~');}
+        }
+        return [$regex.'$~u',$names];
+    }
+
+    private function normalize(string $text):string
+    {
+        $text=trim($text);$text=preg_replace('/\s+/u',' ',$text)??$text;
+        return function_exists('mb_strtolower')?mb_strtolower($text,'UTF-8'):strtolower($text);
+    }
+}
+
 final class Hari
 {
     public function __construct(
@@ -291,11 +376,15 @@ final class Hari
         public Affect $affect=new Affect(),
         public ToolRouter $tools=new ToolRouter(),
         public int $age=0,
+        public UtteranceBook $utterances=new UtteranceBook(),
     ){}
     public function teach(string $language,string $phrase,string $concept):void
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
     /** @param array<string,scalar|null> $slots @param list<Action> $actions */ public function demonstrateSkill(string $concept,array $slots,array $actions):bool{$this->inducer->demonstrate($concept,$slots,$actions);$template=$this->inducer->induce($concept);if($template===null)return false;$this->skills->teach($concept,$template);return true;}
+    /** @param array<string,scalar|null> $slots */
+    public function demonstrateUtterance(string $language,string $utterance,string $concept,array $slots):bool
+    { return $this->utterances->demonstrate($language,$utterance,$concept,$slots); }
     /** @return array{status:string,concept:?string,confidence:float} */
     public function interpret(string $language,string $phrase,float $actionThreshold=.90):array
     {
@@ -314,17 +403,24 @@ final class Hari
         if($interpretation['status']!=='known'||$interpretation['concept']===null)return null;
         return $this->skills->plan($interpretation['concept'],$slots);
     }
+    /** @return list<Action>|null */
+    public function planUtterance(string $language,string $utterance,float $minimumConfidence=.90):?array
+    {
+        $parsed=$this->utterances->parse($language,$utterance);
+        if($parsed===null||$parsed['confidence']<$minimumConfidence)return null;
+        return $this->skills->plan($parsed['concept'],$parsed['slots']);
+    }
     public function tick(int $ticks=1):void
     { if($ticks<0)throw new \InvalidArgumentException('life cannot move backwards');$this->age+=$ticks;$this->memory->age($ticks); }
     public function save(string $path):void
     {
         $body=[
             'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
-            'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'inducer'=>$this->inducer->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),
+            'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'inducer'=>$this->inducer->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),'utterances'=>$this->utterances->export(),
         ];
         $flags=JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION|JSON_THROW_ON_ERROR;
         $bodyJson=json_encode($body,$flags);
-        $payload=json_encode(['v'=>4,'body'=>$body,'sha256'=>hash('sha256',$bodyJson)],$flags);
+        $payload=json_encode(['v'=>5,'body'=>$body,'sha256'=>hash('sha256',$bodyJson)],$flags);
         $dir=dirname($path);
         if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new \RuntimeException('state directory');
         $tmp=$path.'.tmp.'.bin2hex(random_bytes(4));
@@ -342,7 +438,7 @@ final class Hari
             Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),new SkillInducer(),
             Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
         );
-        if($v===4){
+        if($v===4||$v===5){
             $body=$x['body']??null;$checksum=(string)($x['sha256']??'');
             if(!is_array($body)||$checksum==='')throw new \RuntimeException('invalid state envelope');
             $bodyJson=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_PRESERVE_ZERO_FRACTION|JSON_THROW_ON_ERROR);
@@ -353,7 +449,7 @@ final class Hari
         }
         return new self(
             Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),SkillInducer::import($x['inducer']??[]),
-            Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
+            Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),$v===5?UtteranceBook::import($x['utterances']??[]):new UtteranceBook(),
         );
     }
 }
