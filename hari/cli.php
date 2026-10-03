@@ -27,6 +27,7 @@ try{
         'teach'=>teach($hari,$command),
         'remember'=>remember($hari,$command),
         'recall'=>recall($hari,$command),
+        'interpret'=>interpret($hari,$command),
         'age'=>ageHari($hari,$command),
         'demonstrate_skill'=>demonstrateSkill($hari,$command),
         'plan'=>plan($hari,$command),
@@ -68,6 +69,12 @@ function recall(Hari $h,array $c):?array
 {
     $m=$h->memory->recall(stringList($c['cues']??[]),(bool)($c['reinforce']??true));
     return $m===null?null:['id'=>$m->id,'text'=>$m->text,'strength'=>$m->strength,'importance'=>$m->importance,'hits'=>$m->hits];
+}
+
+/** @param array<string,mixed> $c */
+function interpret(Hari $h,array $c):array
+{
+    return $h->interpret(requiredString($c,'language'),requiredString($c,'phrase'),(float)($c['action_threshold']??.90));
 }
 
 /** @param array<string,mixed> $c */
