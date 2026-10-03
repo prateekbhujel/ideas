@@ -1,0 +1,30 @@
+name: hari-ci
+
+on:
+  push:
+    branches: [hari-lab]
+  pull_request:
+    branches: [hari-lab]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: Materialize HARI lab
+        run: |
+          mkdir -p /tmp/hari
+          base64 -d hari-ci.tar.gz.b64 > /tmp/hari.tar.gz
+          tar -xzf /tmp/hari.tar.gz -C /tmp/hari
+      - name: Lint
+        run: find /tmp/hari/src /tmp/hari/bin /tmp/hari/tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Test
+        run: php /tmp/hari/tests/run.php
