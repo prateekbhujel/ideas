@@ -296,12 +296,23 @@ final class Hari
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
     /** @param array<string,scalar|null> $slots @param list<Action> $actions */ public function demonstrateSkill(string $concept,array $slots,array $actions):bool{$this->inducer->demonstrate($concept,$slots,$actions);$template=$this->inducer->induce($concept);if($template===null)return false;$this->skills->teach($concept,$template);return true;}
+    /** @return array{status:string,concept:?string,confidence:float} */
+    public function interpret(string $language,string $phrase,float $actionThreshold=.90):array
+    {
+        $resolution=$this->lexicon->resolveDetailed($language,$phrase);
+        if($resolution===null)return ['status'=>'unknown','concept'=>null,'confidence'=>0.0];
+        return [
+            'status'=>$resolution['confidence']>=$actionThreshold?'known':'ask',
+            'concept'=>$resolution['concept'],
+            'confidence'=>$resolution['confidence'],
+        ];
+    }
     /** @param array<string,scalar|null> $slots @return list<Action>|null */
     public function plan(string $language,string $phrase,array $slots,float $minimumIntentConfidence=.90):?array
     {
-        $resolution=$this->lexicon->resolveDetailed($language,$phrase);
-        if($resolution===null||$resolution['confidence']<$minimumIntentConfidence)return null;
-        return $this->skills->plan($resolution['concept'],$slots);
+        $interpretation=$this->interpret($language,$phrase,$minimumIntentConfidence);
+        if($interpretation['status']!=='known'||$interpretation['concept']===null)return null;
+        return $this->skills->plan($interpretation['concept'],$slots);
     }
     public function tick(int $ticks=1):void
     { if($ticks<0)throw new \InvalidArgumentException('life cannot move backwards');$this->age+=$ticks;$this->memory->age($ticks); }
