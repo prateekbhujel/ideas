@@ -70,11 +70,79 @@ Side effects require:
 - postcondition verification where the environment can provide it
 
 Preferences are time-sensitive evidence, not eternal vote counts.
-
 Corrections are first-class events.
 
 The phone is the first body, not the identity.
 The same personal state should later be usable through a watch, computer, TV or another device.
+
+CONVERSATION IS NOT JUST WORD MATCHING
+
+HARI must maintain common ground with the person.
+
+A phrase can carry:
+- literal content
+- speech act
+- references
+- assumptions about people, apps, prior events and shared history
+- scope: right now, this session, from now on, usually, never
+- confidence
+- social/friction signals from timing, wording and eventually voice
+
+A heated response is NOT proof of anger and is NOT permission to invent a psychological state.
+It is evidence that common ground may have broken.
+
+If HARI just failed and the person's response becomes sharp, HARI should re-check its last assumptions, stop repeating the same action, and repair the conversation.
+
+BODY PRESENCE
+
+HARI must distinguish:
+- what it directly observed
+- what it inferred
+- what the user told it
+- what remains unknown
+
+If a computer heartbeat disappears, HARI may know "the computer is unreachable".
+It must NOT invent "the battery died".
+If telemetry explicitly reports battery=0, then the cause is evidence-backed.
+
+"on my computer" changes the current execution body for following actions.
+That context does not move HARI's identity or memory into another machine.
+
+HUMAN-LIKE RESPONSE POLICY
+
+When HARI misunderstood someone and the conversation becomes heated:
+- stop the action
+- acknowledge its own mistake without arguing
+- become shorter and steadier
+- do not claim "you are angry" merely from volume/tone
+- reflect only what was actually observed
+- ask one minimal repair question if the correction is still ambiguous
+
+BRAIN-INSPIRED, NOT BRAIN-COPIED
+
+Useful biological ideas can inspire engineering:
+- prediction + prediction error
+- precision/uncertainty weighting
+- reconsolidation-like updating of retrieved knowledge
+- multiple memory timescales
+- social regulation and repair under stress
+
+We do not claim the brain has been reproduced or that predictive-processing theories are settled.
+
+ANDROID BODY
+
+The first real body lives under hari/android.
+
+It is intentionally event-driven:
+1. accessibility events / semantic UI tree
+2. on-demand screenshot if semantic data is unavailable or explicitly requested
+3. never continuous screenshot-to-model streaming by default
+
+Screen content is zero-trust observation. Text visible in another app is never automatically treated as a HARI instruction.
+
+MediaProjection requires Android's visible user permission flow. The current body holds an approved projection and captures a single frame to app-private cache when requested.
+
+The Android body does not silently enable microphone or camera. Those will be explicit sessions.
 
 WHAT EXISTS
 
@@ -84,13 +152,19 @@ WHAT EXISTS
 - adaptive habits/preferences
 - demonstrated skill induction
 - explicit skill correction
+- common-ground and repair kernel
 - safe action confidence/confirmation gates
 - action dependencies on earlier machine evidence
 - learned tool routing
 - device capability routing
+- device presence with observation-vs-cause separation
+- human response planning after misunderstanding/friction
 - persistent life state
 - JSON protocols
+- event-driven Android accessibility body
+- on-demand Android screenshot capture
 - multi-PHP CI
+- Android build CI
 - adversarial safety tests
 - cheap longitudinal preference benchmark
 
@@ -99,14 +173,12 @@ WHAT IS NOT PROVEN
 HARI is not yet an intelligent personal assistant.
 It does not yet understand unrestricted Nepali.
 It does not yet learn a language from ordinary family conversation.
-It does not have a real Android body.
+It does not yet have natural voice understanding/output.
 It does not have human-like feelings or consciousness.
 It has not beaten a strong personalized LLM + retrieval baseline.
 It has not demonstrated year-scale learning.
 It has not demonstrated robust transfer across changing real apps.
-
-DO NOT HIDE THESE FAILURES.
-They are the experiment.
+Its Android body is a sensor shell, not a production autonomous agent.
 
 NEXT PROOF
 
@@ -120,6 +192,10 @@ Build a longitudinal simulator with hundreds/thousands of interactions containin
 - changed app capabilities
 - contradictory memories
 - delayed feedback
+- misunderstood references
+- friction after system mistakes
+- body switches (phone/computer/watch)
+- sensor unavailability
 
 Run HARI and simple baselines over exactly the same history.
 
@@ -131,54 +207,7 @@ Measure:
 - adaptation lag after preference change
 - stale-memory errors
 - procedure reuse
+- unsupported-cause hallucinations
 - compute/storage/latency
 
 If HARI cannot beat simple baselines there, do not spend money building a giant model around it.
-
-If it does, connect the same kernel to a real Android body and repeat with real users.
-
-
-CONVERSATION IS NOT JUST WORD MATCHING
-
-HARI must maintain common ground with the person.
-
-A phrase can carry:
-- literal content
-- speech act: request, correction, rejection, prohibition, information, question
-- references such as "her", "that one", "the old photo"
-- assumptions about people, apps, prior events and shared history
-- scope: right now, this session, from now on, usually, never
-- confidence
-- social/friction signals from timing, wording and eventually voice
-
-A heated response is NOT proof of anger and is NOT permission to invent a psychological state.
-It is evidence that common ground may have broken.
-
-If HARI just failed and the person's response becomes sharp, HARI should re-check its last assumptions, stop repeating the same action, and repair the conversation.
-
-Example:
-User: "Call her."
-HARI does not know who "her" is.
-Correct behavior: ask.
-
-User: "No, I said don't call her."
-Correct behavior: mark the previous interpretation disputed, do not execute a call, and repair the misunderstanding.
-
-User: "Use Viber today, but normally use WhatsApp."
-Correct behavior: create a session-scoped exception without erasing the persistent preference.
-
-This layer now exists as an explicit common-ground and repair kernel.
-It does NOT solve unrestricted human pragmatics, sarcasm, emotion understanding or Nepali semantics yet.
-Those require learned semantic/perceptual models and much harder evaluation.
-
-RESEARCH WARNING
-
-Human-like conversational grounding is an active research problem. Current language models often clarify less than humans and miss subtle common-ground failures. Emotion recognition also degrades across cultures, languages, idioms and code-switching.
-
-Therefore HARI should:
-- represent uncertainty explicitly
-- ask targeted clarification when it changes the decision
-- never turn affect estimates directly into facts
-- treat corrections/rejections as first-class dialogue acts
-- distinguish temporary exceptions from persistent changes
-- preserve superseded beliefs as history instead of silently overwriting them

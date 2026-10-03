@@ -35,6 +35,10 @@ jobs:
           php -l hari/research-bench.php
           php -l hari/dialogue.php
           php -l hari/dialogue-test.php
+          php -l hari/presence.php
+          php -l hari/presence-test.php
+          php -l hari/response.php
+          php -l hari/response-test.php
       - name: Core tests
         run: php hari/tests.php
       - name: Protocol test
@@ -51,5 +55,26 @@ jobs:
         run: php hari/research-bench.php
       - name: Conversational grounding
         run: php hari/dialogue-test.php
+      - name: Presence and human response
+        run: |
+          php hari/presence-test.php
+          php hari/response-test.php
       - name: End-to-end demo
         run: php hari/demo.php
+
+  android-body:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Test and build Android body
+        run: gradle -p hari/android :app:testDebugUnitTest :app:assembleDebug --no-daemon
