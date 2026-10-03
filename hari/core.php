@@ -164,13 +164,50 @@ final class ToolRouter
     /** @var array<string,Tool> */ private array $tools=[];
     /** @var array<string,array{ok:int,bad:int}> */ private array $history=[];
     public function add(Tool $t):void{$this->tools[$t->name]=$t;$this->history[$t->name]??=['ok'=>0,'bad'=>0];}
-    public function record(string $name,bool $ok):void{++$this->history[$name][$ok?'ok':'bad'];}
+    public function record(string $name,bool $ok):void
+    {
+        if(!isset($this->history[$name]))throw new \OutOfBoundsException("unknown tool: {$name}");
+        ++$this->history[$name][$ok?'ok':'bad'];
+    }
     public function choose(string $capability):?Tool
     {
         $best=null;$bestScore=-INF;
         foreach($this->tools as $t){if(!in_array($capability,$t->capabilities,true))continue;$h=$this->history[$t->name];$n=$h['ok']+$h['bad'];$r=$n?(($h['ok']+1)/($n+2)):$t->reliability;$s=$r*10+($t->local?1:0)-$t->cost;if($s>$bestScore){$best=$t;$bestScore=$s;}}
         return $best;
     }
+    /** @return array<string,mixed> */
+    public function export():array
+    {
+        return [
+            'tools'=>array_map(fn(Tool $t)=>['name'=>$t->name,'capabilities'=>$t->capabilities,'cost'=>$t->cost,'reliability'=>$t->reliability,'local'=>$t->local],array_values($this->tools)),
+            'history'=>$this->history,
+        ];
+    }
+    /** @param array<string,mixed> $data */
+    public static function import(array $data):self
+    {
+        $r=new self();
+        foreach($data['tools']??[] as $t)$r->add(new Tool((string)$t['name'],array_values(array_map('strval',$t['capabilities']??[])),(float)$t['cost'],(float)$t['reliability'],(bool)$t['local']));
+        foreach($data['history']??[] as $name=>$h)if(isset($r->history[$name]))$r->history[$name]=['ok'=>(int)($h['ok']??0),'bad'=>(int)($h['bad']??0)];
+        return $r;
+    }
+}
+
+final class Affect
+{
+    public function __construct(
+        private float $warmth=.5,
+        private float $frustration=0.0,
+        private float $energy=.7,
+        private float $playfulness=.4,
+    ){}
+    public function corrected():void{$this->frustration=min(1,$this->frustration+.08);$this->warmth=max(0,$this->warmth-.01);}
+    public function succeeded():void{$this->frustration=max(0,$this->frustration-.05);$this->warmth=min(1,$this->warmth+.02);}
+    public function rest(float $amount=.1):void{$this->energy=min(1,$this->energy+$amount);$this->frustration=max(0,$this->frustration-$amount/2);}
+    /** @return array{warmth:float,frustration:float,energy:float,playfulness:float} */
+    public function export():array{return ['warmth'=>$this->warmth,'frustration'=>$this->frustration,'energy'=>$this->energy,'playfulness'=>$this->playfulness];}
+    /** @param array<string,mixed> $data */
+    public static function import(array $data):self{return new self((float)($data['warmth']??.5),(float)($data['frustration']??0),(float)($data['energy']??.7),(float)($data['playfulness']??.4));}
 }
 
 final class SkillBook
@@ -213,7 +250,16 @@ final class SkillInducer
 
 final class Hari
 {
-    public function __construct(public Lexicon $lexicon=new Lexicon(),public Memory $memory=new Memory(),public Habits $habits=new Habits(),public SkillBook $skills=new SkillBook(),public SkillInducer $inducer=new SkillInducer()){}
+    public function __construct(
+        public Lexicon $lexicon=new Lexicon(),
+        public Memory $memory=new Memory(),
+        public Habits $habits=new Habits(),
+        public SkillBook $skills=new SkillBook(),
+        public SkillInducer $inducer=new SkillInducer(),
+        public Affect $affect=new Affect(),
+        public ToolRouter $tools=new ToolRouter(),
+        public int $age=0,
+    ){}
     public function teach(string $language,string $phrase,string $concept):void
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
@@ -221,8 +267,31 @@ final class Hari
     /** @param array<string,scalar|null> $slots @return list<Action>|null */
     public function plan(string $language,string $phrase,array $slots):?array
     { $concept=$this->lexicon->resolve($language,$phrase); return $concept===null?null:$this->skills->plan($concept,$slots); }
+    public function tick(int $ticks=1):void
+    { if($ticks<0)throw new \InvalidArgumentException('life cannot move backwards');$this->age+=$ticks;$this->memory->age($ticks); }
     public function save(string $path):void
-    { file_put_contents($path,json_encode(['v'=>1,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),'habits'=>$this->habits->export(),'skills'=>$this->skills->export()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),LOCK_EX); }
+    {
+        $payload=json_encode([
+            'v'=>2,'age'=>$this->age,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),
+            'habits'=>$this->habits->export(),'skills'=>$this->skills->export(),'affect'=>$this->affect->export(),'tools'=>$this->tools->export(),
+        ],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR);
+        $dir=dirname($path);
+        if(!is_dir($dir)&&!mkdir($dir,0700,true)&&!is_dir($dir))throw new \RuntimeException('state directory');
+        $tmp=$path.'.tmp.'.bin2hex(random_bytes(4));
+        if(file_put_contents($tmp,$payload,LOCK_EX)===false)throw new \RuntimeException('state write');
+        @chmod($tmp,0600);
+        if(!rename($tmp,$path)){@unlink($tmp);throw new \RuntimeException('state commit');}
+    }
     public static function load(string $path):self
-    { if(!is_file($path))return new self();$x=json_decode((string)file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);return new self(Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[])); }
+    {
+        if(!is_file($path))return new self();
+        $x=json_decode((string)file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);
+        $v=(int)($x['v']??1);
+        if($v===1)return new self(Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]));
+        if($v!==2)throw new \RuntimeException('unsupported state');
+        return new self(
+            Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[]),SkillBook::import($x['skills']??[]),new SkillInducer(),
+            Affect::import($x['affect']??[]),ToolRouter::import($x['tools']??[]),(int)($x['age']??0),
+        );
+    }
 }
