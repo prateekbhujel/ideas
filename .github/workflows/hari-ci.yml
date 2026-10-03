@@ -21,10 +21,17 @@ jobs:
           coverage: none
       - name: Materialize HARI lab
         run: |
+          rm -rf /tmp/hari
           mkdir -p /tmp/hari
           base64 -d hari-ci.tar.gz.b64 > /tmp/hari.tar.gz
           tar -xzf /tmp/hari.tar.gz -C /tmp/hari
+          cp -R hari/src/* /tmp/hari/src/
       - name: Lint
-        run: find /tmp/hari/src /tmp/hari/bin /tmp/hari/tests -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Test
+        run: |
+          find /tmp/hari/src /tmp/hari/bin /tmp/hari/tests hari/tests -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Core tests
         run: php /tmp/hari/tests/run.php
+      - name: M2 memory tests
+        env:
+          HARI_ROOT: /tmp/hari
+        run: php hari/tests/m2.php
