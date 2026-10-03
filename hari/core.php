@@ -125,6 +125,8 @@ final class Habits
         $x=$this->counts[$context]??[]; $n=array_sum($x); if($n<$minimum)return null; arsort($x); $c=(string)array_key_first($x);
         return ['choice'=>$c,'confidence'=>(($x[$c]+1)/($n+count($x)))];
     }
+    /** @return array<string,array<string,int>> */ public function export():array{return $this->counts;}
+    /** @param array<string,array<string,int>> $x */ public static function import(array $x):self{$h=new self();$h->counts=$x;return $h;}
 }
 
 enum Risk:int { case Read=0; case Reversible=1; case External=2; }
@@ -171,13 +173,35 @@ final class ToolRouter
     }
 }
 
+final class IntentCompiler
+{
+    /** @param array<string,scalar|null> $slots @return list<Action>|null */
+    public function compile(string $concept,array $slots):?array
+    {
+        return match($concept){
+            'video_call','voice_call' => isset($slots['person']) ? [
+                new Action('FIND_CONTACT',['person'=>$slots['person']],.95,Risk::Read),
+                new Action($concept==='video_call'?'VIDEO_CALL':'CALL',['person'=>$slots['person']],.95,Risk::External),
+            ] : null,
+            'send_message' => isset($slots['person'],$slots['message']) ? [
+                new Action('FIND_CONTACT',['person'=>$slots['person']],.95,Risk::Read),
+                new Action('SEND_MESSAGE',['person'=>$slots['person'],'message'=>$slots['message']],.95,Risk::External),
+            ] : null,
+            default => null,
+        };
+    }
+}
+
 final class Hari
 {
-    public function __construct(public Lexicon $lexicon=new Lexicon(),public Memory $memory=new Memory(),public Habits $habits=new Habits()){}
+    public function __construct(public Lexicon $lexicon=new Lexicon(),public Memory $memory=new Memory(),public Habits $habits=new Habits(),private IntentCompiler $compiler=new IntentCompiler()){}
     public function teach(string $language,string $phrase,string $concept):void
     { $this->lexicon->teach($language,$phrase,$concept); $this->memory->remember("$language:$phrase=$concept",[$language,$phrase,$concept],.75); }
+    /** @param array<string,scalar|null> $slots @return list<Action>|null */
+    public function plan(string $language,string $phrase,array $slots):?array
+    { $concept=$this->lexicon->resolve($language,$phrase); return $concept===null?null:$this->compiler->compile($concept,$slots); }
     public function save(string $path):void
-    { file_put_contents($path,json_encode(['v'=>1,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),LOCK_EX); }
+    { file_put_contents($path,json_encode(['v'=>1,'lexicon'=>$this->lexicon->export(),'memory'=>$this->memory->export(),'habits'=>$this->habits->export()],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR),LOCK_EX); }
     public static function load(string $path):self
-    { if(!is_file($path))return new self();$x=json_decode((string)file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);return new self(Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[])); }
+    { if(!is_file($path))return new self();$x=json_decode((string)file_get_contents($path),true,flags:JSON_THROW_ON_ERROR);return new self(Lexicon::import($x['lexicon']??[]),Memory::import($x['memory']??[]),Habits::import($x['habits']??[])); }
 }
