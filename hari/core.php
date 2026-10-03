@@ -18,18 +18,24 @@ final class Lexicon
 
     public function resolve(string $language, string $phrase): ?string
     {
-        $key = $this->key($language, $phrase);
-        if (isset($this->map[$key])) return $this->map[$key]['concept'];
+        return $this->resolveDetailed($language,$phrase)['concept']??null;
+    }
 
-        $q = self::normalize($phrase);
-        $best = null; $score = 0.0;
-        foreach ($this->map as $k => $row) {
-            [$lang, $known] = explode("\0", $k, 2);
-            if ($lang !== strtolower($language)) continue;
-            similar_text($q, $known, $pct);
-            if ($pct > $score) { $score = $pct; $best = $row['concept']; }
+    /** @return array{concept:string,confidence:float}|null */
+    public function resolveDetailed(string $language,string $phrase):?array
+    {
+        $key=$this->key($language,$phrase);
+        if(isset($this->map[$key]))return ['concept'=>$this->map[$key]['concept'],'confidence'=>1.0];
+
+        $q=self::normalize($phrase);$best=null;$score=0.0;
+        foreach($this->map as $k=>$row){
+            [$lang,$known]=explode("\0",$k,2);
+            if($lang!==strtolower(trim($language)))continue;
+            similar_text($q,$known,$pct);
+            if($pct>$score){$score=$pct;$best=$row['concept'];}
         }
-        return $score >= 82.0 ? $best : null;
+        $confidence=$score/100.0;
+        return $best!==null&&$confidence>=.82?['concept'=>$best,'confidence'=>$confidence]:null;
     }
 
     /** @return array<string,array{concept:string,seen:int}> */
@@ -291,8 +297,12 @@ final class Hari
     /** @param list<Action> $template */ public function teachSkill(string $concept,array $template):void{$this->skills->teach($concept,$template);}
     /** @param array<string,scalar|null> $slots @param list<Action> $actions */ public function demonstrateSkill(string $concept,array $slots,array $actions):bool{$this->inducer->demonstrate($concept,$slots,$actions);$template=$this->inducer->induce($concept);if($template===null)return false;$this->skills->teach($concept,$template);return true;}
     /** @param array<string,scalar|null> $slots @return list<Action>|null */
-    public function plan(string $language,string $phrase,array $slots):?array
-    { $concept=$this->lexicon->resolve($language,$phrase); return $concept===null?null:$this->skills->plan($concept,$slots); }
+    public function plan(string $language,string $phrase,array $slots,float $minimumIntentConfidence=.90):?array
+    {
+        $resolution=$this->lexicon->resolveDetailed($language,$phrase);
+        if($resolution===null||$resolution['confidence']<$minimumIntentConfidence)return null;
+        return $this->skills->plan($resolution['concept'],$slots);
+    }
     public function tick(int $ticks=1):void
     { if($ticks<0)throw new \InvalidArgumentException('life cannot move backwards');$this->age+=$ticks;$this->memory->age($ticks); }
     public function save(string $path):void
