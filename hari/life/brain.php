@@ -104,23 +104,17 @@ final class HariBrain
     public function save(string $path): void
     {
         $body=['v'=>1,'language'=>$this->language->export(),'schemas'=>$this->schemas->export(),'programs'=>$this->programs->export(),'episodes'=>$this->episodes->export(),'facts'=>$this->facts->export(),'actThreshold'=>$this->actThreshold,'ambiguityMargin'=>$this->ambiguityMargin'];
-        $JSON_OPTIONS=JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR;
-        $json=json_encode($body,$JSON_OPTIONS);
-        $envelope=json_encode(['body'=>$body,"sha256"=>hash('sha256',$json)],$JSON_OPTIONS|JSON_PRETTY_PRINT);
-        $tmp=$path.'.tmp.'.getmypid();
-        if(file_put_contents($tmp,$envelope,LOCK_EX)===false)throw new \RuntimeException('state write failed');
-        @chmod($tmp,0600);
-        if(!@rename($tmp,$path)){@unlink($tmp);throw new \\RuntimeException('state commit failed');}
+        $json=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        $envelope=json_encode(['body'=>$body,'sha256'=>hash('sha256',$json)],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT);
+        $tmp=$path.'.tmp.'.getmypid();file_put_contents($tmp,$envelope,LOCK_EX);@chmod($tmp,0600);rename($tmp,$path);
     }
 
     public static function load(string $path): self
     {
-        $bytes=file_get_contents($path);
-        if($bytes===false)throw new \\RuntimeException('state read failed');
-        $e=json_decode($bytes,true,512,JSON_THROW_ON_ERROR);
-        $body=$e['body']??throw new \\RuntimeException('invalid state');
-        $data=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
-        if(!hash_equals((string)($e['sha256']??''),hash('sha256',$data)))throw new \RuntimeException('state checksum mismatch');
+        $e=json_decode((string)file_get_contents($path),true,512,JSON_THROW_ON_ERROR);
+        $body=$e['body']??throw new \RuntimeException('invalid state');
+        $json=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
+        if(!hash_equals((string)($e['sha256']??''),hash('sha256',$json)))throw new \RuntimeException('state checksum mismatch');
         return new self(AssociationMemory::import($body['language']??[]),SchemaMemory::import($body['schemas']??[]),ProgramMemory::import($body['programs']??[]),EpisodicMemory::import($body['episodes']??[]),FactMemory::import($body['facts']??[]),(float)($body['actThreshold']??.42),(float)($body['ambiguityMargin']??.06));
     }
 }
