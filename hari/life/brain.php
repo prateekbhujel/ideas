@@ -79,7 +79,7 @@ final class HariBrain
             (float)$best['score'],
             false,
             '',
-            ['tokens'=>$tokens,'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
+            ['tokens'=>$tokens,'verb'=>['atom'=>$best['verbAtom'],'score'=>$best['verbScore'],'token'=>$best['verbToken'],'runner_up'=>$runner],'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
         );
     }
 
@@ -127,7 +127,27 @@ final class HariBrain
         }
         $strength=$correction?3.0:1.0;
         $tokens=self::tokenize($utterance);
-        $this->language->learn($tokens,$truth->atoms(),$strength,$correction);
+
+        $aligned=false;
+        if(!$correction&&$before->frame!==null&&$before->frame->equals($truth)){
+            $trace=$before->trace;
+            $bindings=[];
+            $verbToken=$trace['alignment']['verb_token']??null;
+            if(is_string($verbToken)&&$verbToken!=='')$bindings[$verbToken]='verb:'.$truth->verb;
+            foreach($trace['alignment']['roles']??[] as $role=>$roleTrace){
+                $token=$roleTrace['token']??null;
+                if(is_string($token)&&isset($truth->args[$role]))$bindings[$token]='arg.'.$role.':'.$truth->args[$role];
+            }
+            if($truth->negated&&is_array($trace['polarity']??null)){
+                $token=$trace['polarity']['token']??null;
+                if(is_string($token)&&$token!=='')$bindings[$token]='polarity:NEG';
+            }
+            if($bindings!==[]){
+                $this->language->learnBindings($bindings,$strength);
+                $aligned=true;
+            }
+        }
+        if(!$aligned)$this->language->learn($tokens,$truth->atoms(),$strength,$correction);
         $this->schemas->learn($truth);
         if($observedEffect!==null)$this->programs->learn($truth,$observedEffect,$correction?5.0:1.0);
         $this->episodes->remember($utterance,$truth,$observedEffect,$surprise,$correction,$this->language->step());

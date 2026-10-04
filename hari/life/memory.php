@@ -14,6 +14,7 @@ final class AssociationMemory
     public function __construct(
         private int $step = 0,
         private readonly float $decay = 0.9995,
+        private readonly float $stableDecay = 0.99998,
         private readonly int $maxTokens = 1024,
         private readonly int $maxPairsPerToken = 48,
         private readonly int $maxAtoms = 1024,
@@ -67,6 +68,38 @@ final class AssociationMemory
             $this->tokens[$token] = $entry;
         }
 
+        $this->enforceBudgets();
+    }
+
+    /**
+     * Reinforce only bindings that the current model already resolved correctly.
+     * This is the consolidation path: repeated familiar experience sharpens the
+     * mapping instead of re-associating every co-occurring word with every atom.
+     *
+     * @param array<string,string> $bindings token => atom
+     */
+    public function learnBindings(array $bindings, float $strength = 1.0): void
+    {
+        ++$this->step;
+        foreach($bindings as $token=>$atom){
+            $atomEntry=$this->atoms[$atom]??['count'=>0.0,'last'=>$this->step];
+            $atomEntry['count']=$this->effective($atomEntry['count'],$atomEntry['last'])+$strength;
+            $atomEntry['last']=$this->step;
+            $this->atoms[$atom]=$atomEntry;
+
+            $entry=$this->tokens[$token]??['count'=>0.0,'last'=>$this->step,'pairs'=>[]];
+            $entry['count']=$this->effective($entry['count'],$entry['last'])+$strength;
+            $entry['last']=$this->step;
+            $pair=$entry['pairs'][$atom]??['count'=>0.0,'last'=>$this->step];
+            $pair['count']=$this->effective($pair['count'],$pair['last'])+$strength;
+            $pair['last']=$this->step;
+            $entry['pairs'][$atom]=$pair;
+            if(count($entry['pairs'])>$this->maxPairsPerToken){
+                uasort($entry['pairs'],fn(array $a,array $b):int=>$this->effective($b['count'],$b['last'])<=>$this->effective($a['count'],$a['last']));
+                $entry['pairs']=array_slice($entry['pairs'],0,$this->maxPairsPerToken,true);
+            }
+            $this->tokens[$token]=$entry;
+        }
         $this->enforceBudgets();
     }
 
@@ -147,12 +180,12 @@ final class AssociationMemory
     /** @return array<string,mixed> */
     public function export(): array
     {
-        return ['step'=>$this->step,'decay'=>$this->decay,'maxTokens'=>$this->maxTokens,'maxPairsPerToken'=>$this->maxPairsPerToken,'maxAtoms'=>$this->maxAtoms,'tokens'=>$this->tokens,'atoms'=>$this->atoms];
+        return ['step'=>$this->step,'decay'=>$this->decay,'stableDecay'=>$this->stableDecay,'maxTokens'=>$this->maxTokens,'maxPairsPerToken'=>$this->maxPairsPerToken,'maxAtoms'=>$this->maxAtoms,'tokens'=>$this->tokens,'atoms'=>$this->atoms];
     }
 
     public static function import(array $data): self
     {
-        $self = new self((int)($data['step'] ?? 0),(float)($data['decay'] ?? .9995),(int)($data['maxTokens'] ?? 1024),(int)($data['maxPairsPerToken'] ?? 48),(int)($data['maxAtoms'] ?? 1024));
+        $self = new self((int)($data['step'] ?? 0),(float)($data['decay'] ?? .9995),(float)($data['stableDecay'] ?? .99998),(int)($data['maxTokens'] ?? 1024),(int)($data['maxPairsPerToken'] ?? 48),(int)($data['maxAtoms'] ?? 1024));
         $self->tokens = is_array($data['tokens'] ?? null) ? $data['tokens'] : [];
         $self->atoms = is_array($data['atoms'] ?? null) ? $data['atoms'] : [];
         return $self;
@@ -161,7 +194,11 @@ final class AssociationMemory
     private function effective(float $value, int $last): float
     {
         $age = max(0, $this->step - $last);
-        return $age === 0 ? $value : $value * ($this->decay ** $age);
+        if($age===0)return $value;
+        // Repeated, consistent evidence becomes slower-changing semantic memory.
+        // One-shot material remains plastic and decays on the fast timescale.
+        $rate=$value>=2.0?$this->stableDecay:$this->decay;
+        return $value * ($rate ** $age);
     }
 
     private function inCategory(string $atom, string $category): bool
