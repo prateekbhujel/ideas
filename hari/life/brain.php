@@ -17,6 +17,7 @@ final class HariBrain
         private FactMemory $facts = new FactMemory(),
         private float $actThreshold = .42,
         private float $ambiguityMargin = .06,
+        private float $semanticAlternativeRatio = .90,
     ) {}
 
     /** @return list<string> */
@@ -65,7 +66,8 @@ final class HariBrain
             }
         }
 
-        if($best===null||$best['score']<$this->actThreshold||($best['score']-$runner)<.02){
+        $semanticAmbiguous=$best!==null&&$runner>0.0&&($runner/max(0.000001,$best['score']))>=$this->semanticAlternativeRatio;
+        if($best===null||$best['score']<$this->actThreshold||$semanticAmbiguous){
             return new Inference(null,$best['score']??0.0,true,'I am not sure how the words map to an action.',['tokens'=>$tokens,'best_alignment'=>$best,'runner_up'=>$runner]);
         }
 
@@ -188,7 +190,7 @@ final class HariBrain
 
     public function save(string $path): void
     {
-        $body=['v'=>1,'language'=>$this->language->export(),'schemas'=>$this->schemas->export(),'programs'=>$this->programs->export(),'episodes'=>$this->episodes->export(),'facts'=>$this->facts->export(),'actThreshold'=>$this->actThreshold,'ambiguityMargin'=>$this->ambiguityMargin];
+        $body=['v'=>1,'language'=>$this->language->export(),'schemas'=>$this->schemas->export(),'programs'=>$this->programs->export(),'episodes'=>$this->episodes->export(),'facts'=>$this->facts->export(),'actThreshold'=>$this->actThreshold,'ambiguityMargin'=>$this->ambiguityMargin,'semanticAlternativeRatio'=>$this->semanticAlternativeRatio];
         $json=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $envelope=json_encode(['body'=>$body,'sha256'=>hash('sha256',$json)],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT);
         $tmp=$path.'.tmp.'.getmypid();file_put_contents($tmp,$envelope,LOCK_EX);@chmod($tmp,0600);rename($tmp,$path);
@@ -200,6 +202,6 @@ final class HariBrain
         $body=$e['body']??throw new \RuntimeException('invalid state');
         $json=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         if(!hash_equals((string)($e['sha256']??''),hash('sha256',$json)))throw new \RuntimeException('state checksum mismatch');
-        return new self(AssociationMemory::import($body['language']??[]),SchemaMemory::import($body['schemas']??[]),ProgramMemory::import($body['programs']??[]),EpisodicMemory::import($body['episodes']??[]),FactMemory::import($body['facts']??[]),(float)($body['actThreshold']??.42),(float)($body['ambiguityMargin']??.06));
+        return new self(AssociationMemory::import($body['language']??[]),SchemaMemory::import($body['schemas']??[]),ProgramMemory::import($body['programs']??[]),EpisodicMemory::import($body['episodes']??[]),FactMemory::import($body['facts']??[]),(float)($body['actThreshold']??.42),(float)($body['ambiguityMargin']??.06),(float)($body['semanticAlternativeRatio']??.90));
     }
 }
