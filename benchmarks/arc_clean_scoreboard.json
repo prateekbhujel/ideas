@@ -1,0 +1,58 @@
+[
+  {
+    "timestamp": "2026-10-04T07:38:17.152641+00:00",
+    "commit": "ced9618ef5daea7eeb0793ad1dcdb746bcca5e83",
+    "algorithm": "Random Baseline",
+    "track": "CLEAN_BLIND",
+    "arc_score": 0.0,
+    "levels_completed": 0,
+    "total_levels": 39,
+    "actions": 150,
+    "ram_mb": 160.98,
+    "step_latency_ms": 0.003,
+    "notes": "Track: CLEAN BLIND on 5 envs in 0.3s",
+    "extra": {}
+  },
+  {
+    "timestamp": "2026-10-04T07:57:59.427201+00:00",
+    "commit": "ced9618ef5daea7eeb0793ad1dcdb746bcca5e83",
+    "algorithm": "HARI Autonomous Learner",
+    "track": "CLEAN_BLIND",
+    "arc_score": 0.0,
+    "levels_completed": 0,
+    "total_levels": 31,
+    "actions": 290,
+    "ram_mb": 153.33,
+    "step_latency_ms": 1.393,
+    "notes": "Track: CLEAN BLIND on 4 envs in 0.7s",
+    "extra": {}
+  },
+  {
+    "timestamp": "2026-10-04T08:00:11.647569+00:00",
+    "commit": "ced9618ef5daea7eeb0793ad1dcdb746bcca5e83",
+    "algorithm": "HARI Autonomous Learner",
+    "track": "CLEAN_BLIND",
+    "arc_score": 0.0,
+    "levels_completed": 0,
+    "total_levels": 148,
+    "actions": 1138,
+    "ram_mb": 225.31,
+    "step_latency_ms": 1.24,
+    "notes": "Track: CLEAN BLIND on 20 envs in 2.9s",
+    "extra": {}
+  },
+  {
+    "timestamp": "2026-10-04T08:04:15.669931+00:00",
+    "commit": "ced9618ef5daea7eeb0793ad1dcdb746bcca5e83",
+    "algorithm": "HARI Autonomous Learner",
+    "track": "CLEAN_BLIND",
+    "arc_score": 0.0,
+    "levels_completed": 0,
+    "total_levels": 148,
+    "actions": 1664,
+    "ram_mb": 225.81,
+    "step_latency_ms": 1.218,
+    "notes": "Track: CLEAN BLIND on 20 envs in 3.8s",
+    "extra": {}
+  }
+]
