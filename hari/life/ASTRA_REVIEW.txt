@@ -1,0 +1,33 @@
+Act as an adversarial principal AI systems researcher. Review the active HARI Life MVP under hari/life/. Do not reward ambition or novelty claims. Try to falsify the design.
+
+Read every file under hari/life/, then run:
+
+  php hari/life/tests.php
+  php hari/life/adversarial.php
+  php hari/life/benchmark.php
+  php hari/life/demo.php
+
+The project intentionally does not use a transformer, pretrained model, or backpropagation in its online learning loop.
+
+Interrogate these claims:
+
+1. Is held-out composition real, or does the benchmark leak the answer through its representation or split?
+2. Is one-shot transfer genuinely compositional, or just an artifact of explicit frame labels?
+3. Does explicit correction update only relevant knowledge, and what adversarial histories make it fail?
+4. Can biased/correlated demonstrations make HARI confidently infer the wrong semantic role?
+5. Does ProgramMemory actually induce reusable structure, or merely exploit a hand-designed abstraction that has the answer baked in?
+6. Do the hard resource bounds really remain bounded in time and serialized state under long streams and vocabulary churn?
+7. What happens under contradictions, synonyms, homonyms, reordered words, optional words, morphology, noise, temporary exceptions, concept drift, and long inactivity?
+8. Does lazy decay create accidental forgetting of rare but important language?
+9. Can a high-frequency distractor evict useful rare concepts?
+10. Are ASK/ACT confidence thresholds calibrated, or merely tuned to this benchmark?
+11. Which parts are actual learned state versus semantics supplied by the developer in `SemanticFrame`, `Effect`, schema categories, and effect abstraction?
+12. What is the smallest experiment that would decisively show this approach is not scaling beyond a toy?
+
+Add adversarial tests rather than only prose when possible. Separate:
+- implementation bugs,
+- benchmark weaknesses,
+- architectural limitations,
+- genuinely interesting behavior.
+
+Do not call it human-like, brain-like, or novel unless the evidence warrants it.

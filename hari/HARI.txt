@@ -1,65 +1,34 @@
-HARI
+HARI ACTIVE DIRECTION
 
-RESEARCH TARGET
+The Android assistant path is frozen. The active experiment is a fixed-resource continual learner.
 
-Can a small persistent system accumulate experience with one person so that the person's work decreases over time, while remaining correct when preferences, language, apps, devices and circumstances change?
+Rules of the experiment:
 
-Human language is not machine execution. Fuzzy similarity cannot authorize a side effect.
+- no pretrained language model inside HARI
+- no transformer requirement
+- no GPU requirement for normal learning
+- no global retraining after each experience
+- fixed memory/resource budgets
+- knowledge must change online
+- uncertainty must be explicit
+- corrections must not require replaying the whole lifetime
+- repeated experience should compress into reusable structure
+- state must survive restart
+- every claimed capability needs a held-out or adversarial test
 
-The phone is the first body, not the identity.
+The current MVP is under hari/life/.
 
-ANDROID MVP
+Its internal pieces are:
+- bounded episodic memory
+- decaying local token/meaning association memory
+- learned action-role schemas
+- induced outcome programs
+- mutable fact memory
+- prediction error / surprise
+- explicit ASK vs ACT behavior
+- persistence and inspectable evidence traces
 
-There is now an installable Android MVP intended to prove a complete local loop:
+This is not a claim of human intelligence. It is a machine for testing whether useful capability can accumulate under a fixed physical budget.
 
-voice/text
--> built-in command or exact locally taught phrase
--> real Android capability
--> observed result
--> spoken/text reply
-
-Real MVP capabilities:
-- persistent arbitrary phrase aliases
-- persistent user-taught facts
-- Android SpeechRecognizer input when available
-- Android TextToSpeech output when available
-- launch installed apps by launcher label
-- resolve contacts and open ACTION_DIAL
-- exact semantic UI taps through AccessibilityService
-- password-field tap blocking
-- event-driven screen semantics and visible-text summary
-- explicit one-frame MediaProjection capture
-- honest refusal when a computer body is not connected
-
-Example:
-teach: आमालाई देखिने फोन => call Mom
-
-This teaches an exact phrase mapping. It does NOT prove unrestricted Nepali understanding.
-
-The CI publishes an APK artifact named:
-hari-android-mvp
-
-WHAT THIS DOES NOT PROVE
-
-- unrestricted natural-language understanding
-- natural expressive Nepali speech
-- screenshot/image understanding
-- camera understanding
-- PC/watch/TV transport
-- long-horizon autonomy
-- human-like emotions or consciousness
-- superiority over strong personalized model + retrieval baselines
-
-NEXT PROOF
-
-Install on a real Android phone and test the loop with:
-- voice recognition
-- phrase teaching across restart
-- real app launch
-- real contact resolution
-- accessibility observations
-- exact semantic taps
-- permission denial/recovery
-- screen changes and app updates
-
-After that, add authenticated computer-body transport and real post-action verification rather than more simulated capability.
+Kill condition:
+If harder grounded worlds show that capability only improves by increasing state/compute roughly in proportion to experience, or if composition collapses outside hand-shaped representations, we change or kill the architecture instead of hiding the failure with more compute.
