@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# HARI ARC-AGI-3 Runner
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_PYTHON="/Volumes/DEV-T7/Projects/hari-scratch/venv/bin/python"
+
+if [ ! -f "$VENV_PYTHON" ]; then
+    echo "Error: Python venv not found at $VENV_PYTHON"
+    exit 1
+fi
+
+export PYTHONPATH="$SCRIPT_DIR:$PYTHONPATH"
+exec "$VENV_PYTHON" -m hari.arc.runner "$@"
