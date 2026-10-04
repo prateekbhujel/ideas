@@ -79,7 +79,7 @@ final class HariBrain
             (float)$best['score'],
             false,
             '',
-            ['tokens'=>$tokens,'verb'=>['atom'=>$best['verbAtom'],'score'=>$best['verbScore'],'token'=>$best['verbToken'],'runner_up'=>$runner],'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
+            ['tokens'=>$tokens,'verb'=>['atom'=>$best['verbAtom'],'score'=>$best['verbScore'],'token'=>$best['verbToken'],'runner_up'=>$runner],'roles'=>$best['roleTrace'],'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
         );
     }
 

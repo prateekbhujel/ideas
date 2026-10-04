@@ -102,7 +102,8 @@ $postLife=$brain->infer('zefi lumi bela');
 $postLifeCorrect=$postLife->frame?->canonical()==='PAINT color=blue object=ball';
 
 $tmp=sys_get_temp_dir().'/hari-life-benchmark-'.getmypid().'.json';$brain->save($tmp);$stateBytes=filesize($tmp)?:0;$restored=HariBrain::load($tmp);@unlink($tmp);
-$restartCorrect=$restored->infer('mako piko mesa')->frame?->canonical()==='MOVE destination=table object=cup';
+$restartInference=$restored->infer('mako piko mesa');
+$restartCorrect=$restartInference->frame?->canonical()==='MOVE destination=table object=cup';
 
 $total=count($held);
 $result=[
@@ -129,6 +130,12 @@ $result=[
         'unknown_causes_ask'=>$unknownSafe,
         'one_shot_fact_revision'=>$factCorrect,
         'restart_retention'=>$restartCorrect,
+        'restart_diagnostic'=>[
+            'decision'=>$restartInference->shouldAsk?'ASK':'ACT',
+            'frame'=>$restartInference->frame?->canonical(),
+            'confidence'=>round($restartInference->confidence,4),
+            'trace'=>$restartInference->trace,
+        ],
         'retention_after_long_stream'=>$postLifeCorrect,
     ],
     'bounded_life'=>[
