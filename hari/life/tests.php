@@ -71,7 +71,7 @@ $tests['one-shot facts revise immediately']=function():void{
 };
 
 $tests['state survives restart with checksum']=function()use($curriculum):void{
-    $b=new HariBrain();$currriculum($b);
+    $b=new HariBrain();$curriculum($b);
     $b->rememberFact('owner.name','Pratik');
     $path=sys_get_temp_dir().'/hari-life-'.getmypid().'.json';$b->save($path);$c=HariBrain::load($path);@unlink($path);
     eq('Pratik',$c->recallFact('owner.name'));eq('MOVE destination=box object=ball',$c->infer('mako lumi vora')->frame?->canonical());
