@@ -103,7 +103,7 @@ final class HariBrain
 
     public function save(string $path): void
     {
-        $body=['v'=>1,'language'=>$this->language->export(),'schemas'=>$this->schemas->export(),'programs'=>$this->programs->export(),'episodes'=>$this->episodes->export(),'facts'=>$this->facts->export(),'actThreshold'=>$this->actThreshold,'ambiguityMargin'=>$this->ambiguityMargin'];
+        $body=['v'=>1,'language'=>$this->language->export(),'schemas'=>$this->schemas->export(),'programs'=>$this->programs->export(),'episodes'=>$this->episodes->export(),'facts'=>$this->facts->export(),'actThreshold'=>$this->actThreshold,'ambiguityMargin'=>$this->ambiguityMargin];
         $json=json_encode($body,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);
         $envelope=json_encode(['body'=>$body,'sha256'=>hash('sha256',$json)],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR|JSON_PRETTY_PRINT);
         $tmp=$path.'.tmp.'.getmypid();file_put_contents($tmp,$envelope,LOCK_EX);@chmod($tmp,0600);rename($tmp,$path);
