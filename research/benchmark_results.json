@@ -1,0 +1,212 @@
+{
+    "meta": {
+        "timestamp": "2026-10-04T11:29:37+05:45",
+        "php_version": "8.4.25",
+        "os": "Darwin",
+        "budgets": [
+            1,
+            2,
+            5,
+            10,
+            25,
+            50,
+            100
+        ],
+        "seeds": 5
+    },
+    "sample_efficiency": {
+        "1": {
+            "HARI_Ground": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.10206240291446841
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.024000000000000004
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.26536188837162883
+            }
+        },
+        "2": {
+            "HARI_Ground": {
+                "act_ok": 0,
+                "ask": 0.8,
+                "act_wrong": 0.2,
+                "brier": 0.054124657749534066
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.04649239892805819
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.074
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.27582537329175244
+            }
+        },
+        "5": {
+            "HARI_Ground": {
+                "act_ok": 0.2,
+                "ask": 0.6,
+                "act_wrong": 0.2,
+                "brier": 0.18006055926821737
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.03399585860328719
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.03200000000000001
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.26536188837162883
+            }
+        },
+        "10": {
+            "HARI_Ground": {
+                "act_ok": 0.4,
+                "ask": 0.4,
+                "act_wrong": 0.2,
+                "brier": 0.19236433250675045
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.06805163894489022
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.166
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.28135872939581147
+            }
+        },
+        "25": {
+            "HARI_Ground": {
+                "act_ok": 1,
+                "ask": 0,
+                "act_wrong": 0,
+                "brier": 0.0370701175436069
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.06064615747485398
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.25
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.2760475992974568
+            }
+        },
+        "50": {
+            "HARI_Ground": {
+                "act_ok": 1,
+                "ask": 0,
+                "act_wrong": 0,
+                "brier": 0.05149485251969047
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.0672723052665637
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.25
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.1620054414940151
+            }
+        },
+        "100": {
+            "HARI_Ground": {
+                "act_ok": 1,
+                "ask": 0,
+                "act_wrong": 0,
+                "brier": 0.05187352105590685
+            },
+            "Naive_Bayes": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.0669084478542285
+            },
+            "Nearest_Neighbor": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.25
+            },
+            "Online_SGD": {
+                "act_ok": 0,
+                "ask": 1,
+                "act_wrong": 0,
+                "brier": 0.11157235536752974
+            }
+        }
+    },
+    "stream_churn": {
+        "steps": 50000,
+        "duration_sec": 12.108,
+        "throughput_ops_sec": 4129.7,
+        "avg_latency_us": 242.15,
+        "tokens_count": 942,
+        "features_count": 940,
+        "pairs_count": 1928,
+        "peak_memory_mb": 4,
+        "ram_delta_mb": 2
+    }
+}
