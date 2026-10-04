@@ -48,20 +48,21 @@ final class HariBrain
                 $verbScore=$this->language->associationScore($verbToken,$opAtom);
                 if($verbScore<.20)continue;
                 $used=[$verbIndex=>true];
-                $aligned=$this->alignRoles($tokens,$roles,0,$used,[],[]);
-                if($aligned===null)continue;
-                $scores=array_merge([$verbScore],$aligned['scores']);
-                $score=array_sum($scores)/max(1,count($scores));
-                $candidate=['verb'=>$verbValue,'verbAtom'=>$opAtom,'verbToken'=>$verbToken,'verbScore'=>$verbScore,'roles'=>$roles,'args'=>$aligned['args'],'scores'=>$scores,'used'=>$aligned['used'],'roleTrace'=>$aligned['trace'],'score'=>$score];
-                $candidate['used'][$verbIndex]=true;
-                $candidateArgs=$candidate['args'];ksort($candidateArgs);
-                $candidate['semanticSignature']=(new SemanticFrame($candidate['verb'],$candidateArgs,false))->canonical();
+                $alignments=$this->alignRolesAll($tokens,$roles,0,$used,[],[]);
+                foreach($alignments as $aligned){
+                    $scores=array_merge([$verbScore],$aligned['scores']);
+                    $score=array_sum($scores)/max(1,count($scores));
+                    $candidate=['verb'=>$verbValue,'verbAtom'=>$opAtom,'verbToken'=>$verbToken,'verbScore'=>$verbScore,'roles'=>$roles,'args'=>$aligned['args'],'scores'=>$scores,'used'=>$aligned['used'],'roleTrace'=>$aligned['trace'],'score'=>$score];
+                    $candidate['used'][$verbIndex]=true;
+                    $candidateArgs=$candidate['args'];ksort($candidateArgs);
+                    $candidate['semanticSignature']=(new SemanticFrame($candidate['verb'],$candidateArgs,false))->canonical();
 
-                if($best===null||$score>$best['score']){
-                    if($best!==null&&$best['semanticSignature']!==$candidate['semanticSignature'])$runner=max($runner,$best['score']);
-                    $best=$candidate;
-                }elseif($best['semanticSignature']!==$candidate['semanticSignature']){
-                    $runner=max($runner,$score);
+                    if($best===null||$score>$best['score']){
+                        if($best!==null&&$best['semanticSignature']!==$candidate['semanticSignature'])$runner=max($runner,$best['score']);
+                        $best=$candidate;
+                    }elseif($best['semanticSignature']!==$candidate['semanticSignature']){
+                        $runner=max($runner,$score);
+                    }
                 }
             }
         }
@@ -98,28 +99,42 @@ final class HariBrain
      * @param list<float> $scores
      * @return array{args:array<string,string>,scores:list<float>,used:array<int,bool>,trace:array<string,mixed>}|null
      */
-    private function alignRoles(array $tokens,array $roles,int $at,array $used,array $args,array $scores):?array
+    /**
+     * Return competing token-to-role explanations instead of discarding all but
+     * one. The cap keeps ambiguity search bounded.
+     *
+     * @param list<string> $tokens
+     * @param list<string> $roles
+     * @param array<int,bool> $used
+     * @param array<string,string> $args
+     * @param list<float> $scores
+     * @return list<array{args:array<string,string>,scores:list<float>,used:array<int,bool>,trace:array<string,mixed>}>
+     */
+    private function alignRolesAll(array $tokens,array $roles,int $at,array $used,array $args,array $scores,int $limit=128):array
     {
-        if($at>=count($roles))return ['args'=>$args,'scores'=>$scores,'used'=>$used,'trace'=>[]];
-        $role=$roles[$at];$best=null;
+        if($at>=count($roles))return [['args'=>$args,'scores'=>$scores,'used'=>$used,'trace'=>[]]];
+
+        $role=$roles[$at];$out=[];
         foreach($tokens as $i=>$token){
             if(isset($used[$i]))continue;
             $choice=$this->language->bestForToken($token,'arg.'.$role);
             if($choice['atom']===null||$choice['score']<.20)continue;
+
             $prefix='arg.'.$role.':';
             $value=substr($choice['atom'],strlen($prefix));
-            $u=$used;$u[$i]=true;$a=$args;$a[$role]=$value;$sc=$scores;$sc[]=$choice['score'];
-            $rest=$this->alignRoles($tokens,$roles,$at+1,$u,$a,$sc);
-            if($rest===null)continue;
-            $total=array_sum($rest['scores']);
-            if($best===null||$total>$best['total']){
-                $trace=$rest['trace'];$trace[$role]=['token'=>$token,'atom'=>$choice['atom'],'score'=>$choice['score'],'runner_up'=>$choice['runner_up']];
-                $best=$rest+['total'=>$total];$best['trace']=$trace;
+            $u=$used;$u[$i]=true;
+            $a=$args;$a[$role]=$value;
+            $sc=$scores;$sc[]=$choice['score'];
+
+            foreach($this->alignRolesAll($tokens,$roles,$at+1,$u,$a,$sc,$limit) as $rest){
+                $trace=$rest['trace'];
+                $trace[$role]=['token'=>$token,'atom'=>$choice['atom'],'score'=>$choice['score'],'runner_up'=>$choice['runner_up']];
+                $rest['trace']=$trace;
+                $out[]=$rest;
+                if(count($out)>=$limit)return $out;
             }
         }
-        if($best===null)return null;
-        unset($best['total']);
-        return $best;
+        return $out;
     }
 
     public function experience(string $utterance, SemanticFrame $truth, ?Effect $observedEffect=null, bool $correction=false): array
