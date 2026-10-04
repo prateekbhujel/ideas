@@ -12,7 +12,9 @@ $tests['biased evidence becomes uncertainty rather than a confident fabricated r
     for($i=0;$i<6;$i++)$b->experience('mako lumi mesa',SemanticFrame::parse('MOVE object=ball destination=table'),new Effect('location.ball','table'));
     $b->experience('mako piko tara',SemanticFrame::parse('MOVE object=cup destination=shelf'),new Effect('location.cup','shelf'));
     $i=$b->infer('mako lumi tara');
-    ok($i->shouldAsk||$i->frame?->canonical()==='MOVE destination=shelf object=ball');
+    if(!($i->shouldAsk||$i->frame?->canonical()==='MOVE destination=shelf object=ball')){
+        throw new RuntimeException('biased inference: '.json_encode($b->explain('mako lumi tara'),JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE));
+    }
 };
 $tests['checksum corruption is rejected']=function():void{
     $b=new HariBrain();$path=sys_get_temp_dir().'/hari-corrupt-'.getmypid().'.json';$b->save($path);$raw=file_get_contents($path);$raw=str_replace('"v": 1','"v": 2',$raw);file_put_contents($path,$raw);
