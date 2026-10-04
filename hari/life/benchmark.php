@@ -79,21 +79,21 @@ $brain->rememberFact('krishna.city','Kathmandu');
 $brain->rememberFact('krishna.city','Pokhara');
 $factCorrect=$brain->recallFact('krishna.city')==='Pokhara';
 
-// Long non-stationary stream with unique distractors forces the token budget to fill.
-$verbs=[
-    ['MOVE','mako','destination',['table'=>'mesa','shelf'=>'tara','box'=>'vora'],'location'],
-    ['PAINT','zefi','color',['red'=>'rena','blue'=>'bela','green'=>'gira'],'color'],
-    ['GIVE','nari','recipient',['alice'=>'soma','bob'=>'toma','cara'=>'kira'],'owner'],
-];
-$objects=['ball'=>'lumi','cup'=>'piko','book'=>'dara'];$objKeys=array_keys($objects);$objWords=array_values($objects);
-$streamEvents=4000;$started=microtime(true);
+// Long non-stationary stream creates both new surface words and new semantic
+// atoms. Core concepts are occasionally revisited; the learner must compact
+// disposable history instead of solving longevity by growing RAM.
+$streamEvents=12000;$started=microtime(true);
 for($i=0;$i<$streamEvents;$i++){
-    $vf=$verbs[$i%3];$o=intdiv($i,3)%3;$v=intdiv($i,9)%3;$values=array_keys($vf[3]);$words=array_values($vf[3]);
-    $u=$vf[1].' '.$objWords[$o].' '.$words[$v].' distractor'.$i;
-    $canonical=$vf[0].' object='.$objKeys[$o].' '.$vf[2].'='.$values[$v];
-    $f=SemanticFrame::parse($canonical);
-    $key=$vf[4].'.'.$objKeys[$o];$e=new Effect($key,$values[$v]);
-    $brain->experience($u,$f,$e);
+    $word='junkword'.$i;$object='junk'.$i;
+    $brain->experience(
+        'mako '.$word.' mesa',
+        SemanticFrame::parse('MOVE object='.$object.' destination=table'),
+        new Effect('location.'.$object,'table')
+    );
+    if($i%80===0){
+        $brain->experience('zefi lumi bela',SemanticFrame::parse('PAINT object=ball color=blue'),new Effect('color.ball','blue'));
+        $brain->experience('nari lumi soma',SemanticFrame::parse('GIVE object=ball recipient=alice'),new Effect('owner.ball','alice'));
+    }
     if($i%500===499)$brain->sleep();
 }
 $seconds=microtime(true)-$started;
@@ -137,7 +137,7 @@ $result=[
         'events_per_second'=>$seconds>0?round($streamEvents/$seconds,2):null,
         'state_bytes'=>$stateBytes,
         'resource_stats'=>$stats,
-        'limits'=>['tokens'=>1024,'pairs_per_token'=>48,'episodes'=>256,'programs'=>256,'facts'=>256],
+        'limits'=>['tokens'=>1024,'semantic_atoms'=>1024,'pairs_per_token'=>48,'episodes'=>256,'programs'=>256,'facts'=>256],
     ],
     'warning'=>'Synthetic grounded world only. This is evidence for mechanisms, not evidence of human-level language or intelligence.',
 ];
@@ -147,5 +147,5 @@ echo $json,"\n";
 foreach($argv as $arg){if(str_starts_with($arg,'--json=')){file_put_contents(substr($arg,7),$json."\n");}}
 
 $allGood=$correct===$total&&$baselineCorrect===0&&$worldCorrect===$total&&$negCorrect&&$oneShotCorrect&&$oneShotWorldCorrect&&$correctionCorrect&&$retentionCorrect&&$unknownSafe&&$factCorrect&&$restartCorrect&&$postLifeCorrect
-    &&$stats['language']['tokens']<=1024&&$stats['language']['pairs']<=1024*48&&$stats['episodes']<=256&&$stats['programs']['programs']<=256&&$stats['facts']<=256;
+    &&$stats['language']['tokens']<=1024&&$stats['language']['atoms']<=1024&&$stats['language']['pairs']<=1024*48&&$stats['episodes']<=256&&$stats['programs']['programs']<=256&&$stats['facts']<=256;
 exit($allGood?0:1);

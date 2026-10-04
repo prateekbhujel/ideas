@@ -33,26 +33,86 @@ final class HariBrain
         $tokens=self::tokenize($utterance);
         if($tokens===[])return new Inference(null,0.0,true,'I heard nothing.',['tokens'=>[]]);
 
-        $verb=$this->language->best($tokens,'verb');
-        if($verb['atom']===null||$verb['score']<$this->actThreshold){
-            return new Inference(null,$verb['score'],true,'I do not know what action that means yet.',['tokens'=>$tokens,'verb'=>$verb]);
+        $opAtoms=[];
+        foreach($tokens as $token){
+            $c=$this->language->bestForToken($token,'verb');
+            if($c['atom']!==null)$opAtoms[$c['atom']]=true;
         }
-        $verbValue=substr($verb['atom'],strlen('verb:'));
-        $roles=$this->schemas->requiredRoles($verbValue);
-        $args=[];$traceRoles=[];$confidence=$verb['score'];
-        foreach($roles as $role){
-            $best=$this->language->best($tokens,'arg.'.$role);
-            $traceRoles[$role]=$best;
-            if($best['atom']===null||$best['score']<$this->actThreshold||($best['score']-$best['runner_up'])<$this->ambiguityMargin){
-                return new Inference(null,min($confidence,$best['score']),true,"I am not sure about {$role}.",['tokens'=>$tokens,'verb'=>$verb,'roles'=>$traceRoles]);
+
+        $best=null;$runner=0.0;
+        foreach(array_keys($opAtoms) as $opAtom){
+            $verbValue=substr($opAtom,strlen('verb:'));
+            $roles=$this->schemas->requiredRoles($verbValue);
+            foreach($tokens as $verbIndex=>$verbToken){
+                $verbScore=$this->language->associationScore($verbToken,$opAtom);
+                if($verbScore<.20)continue;
+                $used=[$verbIndex=>true];
+                $aligned=$this->alignRoles($tokens,$roles,0,$used,[],[]);
+                if($aligned===null)continue;
+                $scores=array_merge([$verbScore],$aligned['scores']);
+                $score=array_sum($scores)/max(1,count($scores));
+                $candidate=['verb'=>$verbValue,'verbAtom'=>$opAtom,'verbToken'=>$verbToken,'verbScore'=>$verbScore,'roles'=>$roles,'args'=>$aligned['args'],'scores'=>$scores,'used'=>$aligned['used'],'roleTrace'=>$aligned['trace'],'score'=>$score];
+                $candidate['used'][$verbIndex]=true;
+                if($best===null||$score>$best['score']){
+                    if($best!==null)$runner=max($runner,$best['score']);
+                    $best=$candidate;
+                }else{$runner=max($runner,$score);}
             }
-            $args[$role]=substr($best['atom'],strlen('arg.'.$role.':'));
-            $confidence=min($confidence,$best['score']);
         }
-        ksort($args);
-        $neg=$this->language->best($tokens,'polarity');
-        $negated=$neg['atom']==='polarity:NEG'&&$neg['score']>=$this->actThreshold&&($neg['score']-$neg['runner_up'])>=$this->ambiguityMargin;
-        return new Inference(new SemanticFrame($verbValue,$args,$negated),$confidence,false,'',['tokens'=>$tokens,'verb'=>$verb,'roles'=>$traceRoles,'polarity'=>$neg]);
+
+        if($best===null||$best['score']<$this->actThreshold||($best['score']-$runner)<.02){
+            return new Inference(null,$best['score']??0.0,true,'I am not sure how the words map to an action.',['tokens'=>$tokens,'best_alignment'=>$best,'runner_up'=>$runner]);
+        }
+
+        $negated=false;$negTrace=null;
+        foreach($tokens as $i=>$token){
+            if(isset($best['used'][$i]))continue;
+            $neg=$this->language->bestForToken($token,'polarity');
+            if($neg['atom']==='polarity:NEG'&&$neg['score']>=$this->actThreshold&&($neg['score']-$neg['runner_up'])>=$this->ambiguityMargin){
+                $negated=true;$negTrace=$neg;break;
+            }
+        }
+
+        $args=$best['args'];ksort($args);
+        return new Inference(
+            new SemanticFrame($best['verb'],$args,$negated),
+            (float)$best['score'],
+            false,
+            '',
+            ['tokens'=>$tokens,'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
+        );
+    }
+
+    /**
+     * @param list<string> $tokens
+     * @param list<string> $roles
+     * @param array<int,bool> $used
+     * @param array<string,string> $args
+     * @param list<float> $scores
+     * @return array{args:array<string,string>,scores:list<float>,used:array<int,bool>,trace:array<string,mixed>}|null
+     */
+    private function alignRoles(array $tokens,array $roles,int $at,array $used,array $args,array $scores):?array
+    {
+        if($at>=count($roles))return ['args'=>$args,'scores'=>$scores,'used'=>$used,'trace'=>[]];
+        $role=$roles[$at];$best=null;
+        foreach($tokens as $i=>$token){
+            if(isset($used[$i]))continue;
+            $choice=$this->language->bestForToken($token,'arg.'.$role);
+            if($choice['atom']===null||$choice['score']<.20)continue;
+            $prefix='arg.'.$role.':';
+            $value=substr($choice['atom'],strlen($prefix));
+            $u=$used;$u[$i]=true;$a=$args;$a[$role]=$value;$sc=$scores;$sc[]=$choice['score'];
+            $rest=$this->alignRoles($tokens,$roles,$at+1,$u,$a,$sc);
+            if($rest===null)continue;
+            $total=array_sum($rest['scores']);
+            if($best===null||$total>$best['total']){
+                $trace=$rest['trace'];$trace[$role]=['token'=>$token,'atom'=>$choice['atom'],'score'=>$choice['score'],'runner_up'=>$choice['runner_up']];
+                $best=$rest+['total'=>$total];$best['trace']=$trace;
+            }
+        }
+        if($best===null)return null;
+        unset($best['total']);
+        return $best;
     }
 
     public function experience(string $utterance, SemanticFrame $truth, ?Effect $observedEffect=null, bool $correction=false): array

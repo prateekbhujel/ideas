@@ -32,3 +32,10 @@ This is not a claim of human intelligence. It is a machine for testing whether u
 
 Kill condition:
 If harder grounded worlds show that capability only improves by increasing state/compute roughly in proportion to experience, or if composition collapses outside hand-shaped representations, we change or kill the architecture instead of hiding the failure with more compute.
+
+
+MVP NON-CHEAT DISCLOSURE
+
+The current Life MVP is allowed one strong innate prior: a body demonstration arrives as a generic operation with named argument roles plus an observed effect. The learner is NOT yet discovering those roles or motor primitives from pixels/audio. Any claim that this already resembles Astra-level intelligence would be false.
+
+The current milestone is valuable only if it survives adversarial tests for compositional transfer, uncertainty, correction, persistence and bounded state. The next milestone must progressively remove the supplied semantic frame rather than hide more intelligence in it.

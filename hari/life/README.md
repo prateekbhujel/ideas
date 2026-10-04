@@ -88,6 +88,7 @@ The numbers are **synthetic-world numbers**. They are not evidence that HARI und
 Current default hard ceilings:
 
 - 1,024 surface tokens
+- 1,024 active semantic atoms
 - 48 token/meaning associations per token
 - 256 episodic memories
 - 256 induced programs
@@ -108,6 +109,8 @@ This is intentional: more lifetime experience is not allowed to imply unbounded 
 - autonomous real-world actions
 - human-like memory consolidation
 - proof that this architecture scales beyond small grounded worlds
+
+The body still supplies a generic semantic/action frame (operation plus named argument roles). That is an innate interface prior and a major source of structure; HARI is not yet discovering its own object/role/motor ontology from raw sensation.
 
 The current lexical learner is still a statistical association mechanism over token/semantic co-occurrence. The program inducer uses a deliberately restricted unification rule. Those are mechanisms to test the lifecycle, not claims that we solved cognition.
 

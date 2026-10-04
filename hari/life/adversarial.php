@@ -18,6 +18,18 @@ $tests['checksum corruption is rejected']=function():void{
     $b=new HariBrain();$path=sys_get_temp_dir().'/hari-corrupt-'.getmypid().'.json';$b->save($path);$raw=file_get_contents($path);$raw=str_replace('"v": 1','"v": 2',$raw);file_put_contents($path,$raw);
     $thrown=false;try{HariBrain::load($path);}catch(RuntimeException){$thrown=true;}@unlink($path);ok($thrown);
 };
+$tests['known arguments cannot impersonate an unknown verb']=function():void{
+    $b=new HariBrain();
+    $rows=[
+        ['mako lumi mesa','MOVE object=ball destination=table'],
+        ['mako piko tara','MOVE object=cup destination=shelf'],
+        ['mako lumi tara','MOVE object=ball destination=shelf'],
+    ];
+    foreach($rows as [$u,$c]){$f=SemanticFrame::parse($c);$b->experience($u,$f,new Effect('location.'.$f->args['object'],$f->args['destination']));}
+    $i=$b->infer('qez lumi mesa');
+    ok($i->shouldAsk);eq(null,$i->frame);
+};
+
 $tests['unknown words never become action solely because a world program exists']=function():void{
     $b=new HariBrain();
     foreach([['mako lumi mesa','MOVE object=ball destination=table'],['mako piko tara','MOVE object=cup destination=shelf']] as [$u,$c]){$f=SemanticFrame::parse($c);$b->experience($u,$f,new Effect('location.'.$f->args['object'],$f->args['destination']));}

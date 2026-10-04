@@ -16,6 +16,7 @@ final class AssociationMemory
         private readonly float $decay = 0.9995,
         private readonly int $maxTokens = 1024,
         private readonly int $maxPairsPerToken = 48,
+        private readonly int $maxAtoms = 1024,
     ) {}
 
     public function step(): int { return $this->step; }
@@ -66,7 +67,7 @@ final class AssociationMemory
             $this->tokens[$token] = $entry;
         }
 
-        $this->enforceTokenBudget();
+        $this->enforceBudgets();
     }
 
     /** @param list<string> $inputTokens @return array{atom:?string,score:float,token:?string,runner_up:float} */
@@ -93,6 +94,12 @@ final class AssociationMemory
             }
         }
         return ['atom' => $bestAtom, 'score' => $best, 'token' => $bestToken, 'runner_up' => $runner];
+    }
+
+    /** @return array{atom:?string,score:float,token:?string,runner_up:float} */
+    public function bestForToken(string $token, string $category): array
+    {
+        return $this->best([$token], $category);
     }
 
     public function associationScore(string $token, string $atom): float
@@ -134,18 +141,18 @@ final class AssociationMemory
         foreach ($this->atoms as $atom => $entry) {
             if ($this->effective($entry['count'], $entry['last']) < $minimum) unset($this->atoms[$atom]);
         }
-        $this->enforceTokenBudget();
+        $this->enforceBudgets();
     }
 
     /** @return array<string,mixed> */
     public function export(): array
     {
-        return ['step'=>$this->step,'decay'=>$this->decay,'maxTokens'=>$this->maxTokens,'maxPairsPerToken'=>$this->maxPairsPerToken,'tokens'=>$this->tokens,'atoms'=>$this->atoms];
+        return ['step'=>$this->step,'decay'=>$this->decay,'maxTokens'=>$this->maxTokens,'maxPairsPerToken'=>$this->maxPairsPerToken,'maxAtoms'=>$this->maxAtoms,'tokens'=>$this->tokens,'atoms'=>$this->atoms];
     }
 
     public static function import(array $data): self
     {
-        $self = new self((int)($data['step'] ?? 0),(float)($data['decay'] ?? .9995),(int)($data['maxTokens'] ?? 1024),(int)($data['maxPairsPerToken'] ?? 48));
+        $self = new self((int)($data['step'] ?? 0),(float)($data['decay'] ?? .9995),(int)($data['maxTokens'] ?? 1024),(int)($data['maxPairsPerToken'] ?? 48),(int)($data['maxAtoms'] ?? 1024));
         $self->tokens = is_array($data['tokens'] ?? null) ? $data['tokens'] : [];
         $self->atoms = is_array($data['atoms'] ?? null) ? $data['atoms'] : [];
         return $self;
@@ -168,11 +175,31 @@ final class AssociationMemory
         return $at === false ? $atom : substr($atom, 0, $at);
     }
 
-    private function enforceTokenBudget(): void
+    private function enforceBudgets(): void
     {
-        if (count($this->tokens) <= $this->maxTokens) return;
-        uasort($this->tokens, fn(array $a, array $b): int => $this->effective($a['count'], $a['last']) <=> $this->effective($b['count'], $b['last']));
-        while (count($this->tokens) > $this->maxTokens) array_shift($this->tokens);
+        if (count($this->tokens) > $this->maxTokens) {
+            uasort($this->tokens, fn(array $a, array $b): int => $this->effective($a['count'], $a['last']) <=> $this->effective($b['count'], $b['last']));
+            $target=max(1,(int)floor($this->maxTokens*.875));
+            while(count($this->tokens)>$target)array_shift($this->tokens);
+        }
+
+        if (count($this->atoms) > $this->maxAtoms) {
+            uasort($this->atoms, fn(array $a, array $b): int => $this->effective($a['count'], $a['last']) <=> $this->effective($b['count'], $b['last']));
+            $target=max(1,(int)floor($this->maxAtoms*.875));
+            $removed=[];
+            while(count($this->atoms)>$target){
+                $atom=array_key_first($this->atoms);
+                if($atom===null)break;
+                $removed[$atom]=true;
+                unset($this->atoms[$atom]);
+            }
+            if($removed!==[]){
+                foreach($this->tokens as &$entry){
+                    foreach($removed as $atom=>$_)unset($entry['pairs'][$atom]);
+                }
+                unset($entry);
+            }
+        }
     }
 }
 
@@ -220,25 +247,25 @@ final class ProgramMemory
 
     public function learn(SemanticFrame $frame, Effect $effect, float $strength = 1.0): void
     {
-        if ($frame->negated) return;
-        $this->verbSeen[$frame->verb] = ($this->verbSeen[$frame->verb] ?? 0) + 1;
+        $programKey=($frame->negated?'NOT|':'').$frame->verb;
+        $this->verbSeen[$programKey] = ($this->verbSeen[$programKey] ?? 0) + 1;
         [$key, $value] = $this->abstractEffect($frame, $effect);
         $signature = $key . '=' . $value;
-        $existing = $this->programs[$frame->verb][$signature] ?? ['count'=>0.0,'key'=>$key,'value'=>$value];
+        $existing = $this->programs[$programKey][$signature] ?? ['count'=>0.0,'key'=>$key,'value'=>$value];
         $existing['count'] += $strength;
-        $this->programs[$frame->verb][$signature] = $existing;
+        $this->programs[$programKey][$signature] = $existing;
         $this->enforceBudget();
     }
 
     /** @return array{effect:?Effect,confidence:float,pattern:?string} */
     public function predict(SemanticFrame $frame): array
     {
-        if ($frame->negated) return ['effect'=>null,'confidence'=>1.0,'pattern'=>'negated:no-effect'];
-        $options = $this->programs[$frame->verb] ?? [];
+        $programKey=($frame->negated?'NOT|':'').$frame->verb;
+        $options = $this->programs[$programKey] ?? [];
         if ($options === []) return ['effect'=>null,'confidence'=>0.0,'pattern'=>null];
         uasort($options, fn(array $a,array $b):int=>$b['count']<=>$a['count']);
         $top = reset($options);
-        $seen = max(1, $this->verbSeen[$frame->verb] ?? 1);
+        $seen = max(1, $this->verbSeen[$programKey] ?? 1);
         $confidence = min(1.0, $top['count'] / $seen);
         $pattern = $top['key'].'='.$top['value'];
         if ($confidence < 0.60) return ['effect'=>null,'confidence'=>$confidence,'pattern'=>$pattern];
