@@ -40,7 +40,7 @@ final class HariBrain
             if($c['atom']!==null)$opAtoms[$c['atom']]=true;
         }
 
-        $best=null;$runner=0.0;
+        $best=null;$runner=0.0;$alignmentScores=[];
         foreach(array_keys($opAtoms) as $opAtom){
             $verbValue=substr($opAtom,strlen('verb:'));
             $roles=$this->schemas->requiredRoles($verbValue);
@@ -56,6 +56,11 @@ final class HariBrain
                     $candidate['used'][$verbIndex]=true;
                     $candidateArgs=$candidate['args'];ksort($candidateArgs);
                     $candidate['semanticSignature']=(new SemanticFrame($candidate['verb'],$candidateArgs,false))->canonical();
+                    $binding=['verb@'.$verbToken];
+                    foreach($candidate['roleTrace'] as $role=>$rt)$binding[]=$role.'@'.($rt['token']??'');
+                    sort($binding);
+                    $candidate['bindingSignature']=implode('|',$binding);
+                    $alignmentScores[$candidate['bindingSignature']]=max($alignmentScores[$candidate['bindingSignature']]??0.0,$score);
 
                     if($best===null||$score>$best['score']){
                         if($best!==null&&$best['semanticSignature']!==$candidate['semanticSignature'])$runner=max($runner,$best['score']);
@@ -67,9 +72,15 @@ final class HariBrain
             }
         }
 
+        $alignmentRunner=0.0;
+        if($best!==null){
+            foreach($alignmentScores as $signature=>$score){
+                if($signature!==$best['bindingSignature'])$alignmentRunner=max($alignmentRunner,$score);
+            }
+        }
         $semanticAmbiguous=$best!==null&&$runner>0.0&&($runner/max(0.000001,$best['score']))>=$this->semanticAlternativeRatio;
         if($best===null||$best['score']<$this->actThreshold||$semanticAmbiguous){
-            return new Inference(null,$best['score']??0.0,true,'I am not sure how the words map to an action.',['tokens'=>$tokens,'best_alignment'=>$best,'runner_up'=>$runner]);
+            return new Inference(null,$best['score']??0.0,true,'I am not sure how the words map to an action.',['tokens'=>$tokens,'best_alignment'=>$best,'runner_up'=>$runner,'alignment_runner_up'=>$alignmentRunner]);
         }
 
         $negated=false;$negTrace=null;
@@ -87,7 +98,7 @@ final class HariBrain
             (float)$best['score'],
             false,
             '',
-            ['tokens'=>$tokens,'verb'=>['atom'=>$best['verbAtom'],'score'=>$best['verbScore'],'token'=>$best['verbToken'],'runner_up'=>$runner],'roles'=>$best['roleTrace'],'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'roles'=>$best['roleTrace'],'runner_up'=>$runner],'polarity'=>$negTrace],
+            ['tokens'=>$tokens,'verb'=>['atom'=>$best['verbAtom'],'score'=>$best['verbScore'],'token'=>$best['verbToken'],'runner_up'=>$runner],'roles'=>$best['roleTrace'],'alignment'=>['verb'=>$best['verb'],'verb_token'=>$best['verbToken'],'verb_score'=>$best['verbScore'],'score'=>$best['score'],'roles'=>$best['roleTrace'],'runner_up'=>$runner,'alignment_runner_up'=>$alignmentRunner],'polarity'=>$negTrace],
         );
     }
 
@@ -153,6 +164,9 @@ final class HariBrain
         $aligned=false;
         if(!$correction&&$before->frame!==null&&$before->frame->equals($truth)){
             $trace=$before->trace;
+            $alignmentScore=(float)($trace['alignment']['score']??0.0);
+            $alignmentRunner=(float)($trace['alignment']['alignment_runner_up']??0.0);
+            $alignmentUnique=$alignmentScore>0.0&&($alignmentRunner<=0.0||($alignmentRunner/$alignmentScore)<$this->semanticAlternativeRatio);
             $bindings=[];
             $verbToken=$trace['alignment']['verb_token']??null;
             if(is_string($verbToken)&&$verbToken!=='')$bindings[$verbToken]='verb:'.$truth->verb;
@@ -164,7 +178,7 @@ final class HariBrain
                 $token=$trace['polarity']['token']??null;
                 if(is_string($token)&&$token!=='')$bindings[$token]='polarity:NEG';
             }
-            if($bindings!==[]){
+            if($alignmentUnique&&$bindings!==[]){
                 $this->language->learnBindings($bindings,$strength);
                 $aligned=true;
             }
