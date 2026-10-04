@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HARI Desktop — Embodied Mind</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="top-nav">
+      <div class="brand">
+        <div class="alive-dot" id="aliveDot"></div>
+        <span class="logo-text">HARI</span>
+        <span class="status-badge" id="statusBadge">INITIALIZING</span>
+      </div>
+
+      <div class="controls-bar">
+        <label class="toggle-btn" id="toggleMic">
+          <input type="checkbox" id="micCheck" checked>
+          <span class="icon">🎤</span> Mic <span class="state" id="micState">ON</span>
+        </label>
+        <label class="toggle-btn" id="toggleCam">
+          <input type="checkbox" id="camCheck" checked>
+          <span class="icon">📷</span> Cam <span class="state" id="camState">ON</span>
+        </label>
+        <label class="toggle-btn" id="toggleScreen">
+          <input type="checkbox" id="screenCheck" checked>
+          <span class="icon">🖥️</span> Screen <span class="state" id="screenState">ON</span>
+        </label>
+        <label class="toggle-btn" id="toggleHands">
+          <input type="checkbox" id="handsCheck" checked>
+          <span class="icon">🦾</span> Hands <span class="state" id="handsState">ON</span>
+        </label>
+      </div>
+
+      <div class="resource-pill">
+        <span id="ramPill">RAM: 4.2 MB</span>
+        <span class="sep">|</span>
+        <span id="tokensPill">Tokens: 0</span>
+        <span class="sep">|</span>
+        <span id="uptimePill">Up: 0s</span>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="grid-layout">
+      <!-- Left Column: Vision & Action Center -->
+      <section class="panel left-panel">
+        <div class="panel-header">
+          <h3>👁️ WHAT HARI SEES</h3>
+          <span class="sub" id="frontAppText">Active: Finder</span>
+        </div>
+
+        <div class="vision-container">
+          <div class="cam-box">
+            <video id="camVideo" autoplay playsinline muted></video>
+            <canvas id="camCanvas" style="display:none;"></canvas>
+            <div class="overlay-tag" id="camTag">Camera Feed (MacBook Air)</div>
+          </div>
+          <div class="screen-preview-box">
+            <div class="preview-header">Window Hierarchy</div>
+            <ul class="window-list" id="windowList">
+              <li class="win-item">1. Brave Browser (Active)</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 14px;">
+          <h3>🦾 WHAT HARI IS PLANNING</h3>
+          <span class="sub" id="riskBadge">SAFE</span>
+        </div>
+        <div class="action-card" id="actionCard">
+          <div class="action-title" id="actionTitle">No pending action</div>
+          <div class="action-desc" id="actionDesc">Idle. Awaiting conversational prompt or observation.</div>
+          <div class="confirm-box" id="confirmBox" style="display: none;">
+            <button class="btn btn-confirm" id="btnConfirm">Confirm Consequential Action</button>
+            <button class="btn btn-cancel" id="btnCancel">Cancel</button>
+          </div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 14px;">
+          <h3>⚖️ EPISTEMIC UNCERTAINTY</h3>
+          <span class="sub" id="epistemicDecision">ACT</span>
+        </div>
+        <div class="epistemic-box">
+          <div class="gauge-row">
+            <span>Confidence:</span>
+            <div class="meter-bar"><div class="meter-fill" id="confMeter" style="width: 85%;"></div></div>
+            <span id="confVal">0.85</span>
+          </div>
+          <div class="competing-hypotheses" id="competingList">
+            <div class="hypo-item top">1. Top: none</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Center Column: Conversational Stream & Hearing -->
+      <section class="panel center-panel">
+        <div class="panel-header">
+          <h3>👂 WHAT HARI HEARS</h3>
+          <span class="sub turn-badge" id="turnBadge">Listening...</span>
+        </div>
+
+        <div class="hearing-banner" id="hearingBanner">
+          <div class="wave-meter" id="waveMeter">
+            <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+          </div>
+          <div class="live-transcription" id="liveTranscription">
+            <em>Speak naturally ("Hey Hari", "Look at my screen", "Open Terminal")...</em>
+          </div>
+          <button class="barge-in-btn" id="btnBargeIn" title="Interrupt HARI speaking">⏹️ Interrupt</button>
+        </div>
+
+        <div class="dialogue-scroll" id="dialogueScroll">
+          <div class="msg hari">
+            <div class="msg-author">HARI</div>
+            <div class="msg-bubble">I am alive. I can see your screen, listen to your voice, and operate your Mac. Say <strong>"Hey Hari"</strong> to begin.</div>
+          </div>
+        </div>
+
+        <div class="chat-input-bar">
+          <input type="text" id="textInput" placeholder="Type a command or speak aloud ('Hey Hari')..." />
+          <button class="btn btn-primary" id="btnSend">Send</button>
+        </div>
+      </section>
+
+      <!-- Right Column: Beliefs, Concepts & Memory -->
+      <section class="panel right-panel">
+        <div class="panel-header">
+          <h3>🧠 WHAT HARI BELIEVES</h3>
+          <span class="sub">World State</span>
+        </div>
+        <div class="beliefs-list" id="beliefsList">
+          <div class="belief-pill observation"><span>Active App:</span> <strong>Finder</strong></div>
+          <div class="belief-pill inference"><span>Screen:</span> <strong>Display 0</strong></div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 14px;">
+          <h3>📚 LEARNED CONCEPTS & FACTS</h3>
+          <span class="sub" id="conceptCount">0 bindings</span>
+        </div>
+        <div class="concepts-list" id="conceptsList">
+          <div class="concept-item"><em>No custom concepts learned yet. Say: "Remember that I call this project Ground"</em></div>
+        </div>
+
+        <div class="panel-header" style="margin-top: 14px;">
+          <h3>⏳ RECENT EPISODES & PROVENANCE</h3>
+        </div>
+        <div class="episodes-list" id="episodesList">
+          <div class="episode-item">
+            <span class="time">Just now</span>
+            <span class="txt">Session initialized on Apple Silicon M4.</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

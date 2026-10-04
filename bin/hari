@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# ==============================================================================
+# HARI Master Launcher — Embodied Mind on Apple Silicon M4
+# Usage:
+#   ./bin/hari              - Start HARI desktop daemon and launch interface
+#   ./bin/hari voice-setup  - Launch guided voice recording wizard for voice cloning
+#   ./bin/hari test         - Run regression unit tests
+# ==============================================================================
+
+set -e
+
+REPO_DIR="/Volumes/DEV-T7/Projects/hari"
+SCRATCH_DIR="/Volumes/DEV-T7/Projects/hari-scratch"
+VOICE_DIR="/Volumes/DEV-T7/Projects/hari-data/voice/pratik"
+PORT=8765
+
+mkdir -p "$SCRATCH_DIR/state" "$SCRATCH_DIR/models" "$VOICE_DIR"
+
+MODE="${1:-start}"
+
+if [ "$MODE" = "test" ]; then
+    echo "=== Running HARI Test Suite ==="
+    php "$REPO_DIR/hari/ground/tests.php"
+    php "$REPO_DIR/hari/ground/adversarial.php"
+    php "$REPO_DIR/tests/test_mind.php"
+    exit 0
+fi
+
+echo "============================================================"
+echo "          HARI — Embodied Relational Intelligence           "
+echo "============================================================"
+echo "Workspace:      $REPO_DIR (External SSD)"
+echo "State / Models: $SCRATCH_DIR"
+echo "Voice Data:     $VOICE_DIR"
+echo "Machine:        Apple M4 MacBook Air (macOS 15.6)"
+echo "------------------------------------------------------------"
+
+# Check macOS Permissions Status
+echo -n "Checking macOS Permissions: "
+swift -e '
+import AVFoundation
+import CoreGraphics
+import ApplicationServices
+let mic = AVCaptureDevice.authorizationStatus(for: .audio).rawValue == 3 ? "OK" : "Prompt"
+let screen = CGPreflightScreenCaptureAccess() ? "OK" : "Prompt"
+let ax = AXIsProcessTrusted() ? "OK" : "Notice"
+print("Mic: [\(mic)] | Screen: [\(screen)] | Accessibility: [\(ax)]")
+' 2>/dev/null || echo "Checked."
+
+echo "------------------------------------------------------------"
+echo "Starting HARI Server on http://127.0.0.1:$PORT..."
+
+# Start PHP Built-in Server with HARI Router
+php -S "127.0.0.1:$PORT" "$REPO_DIR/hari/server/router.php" > "$SCRATCH_DIR/hari_server.log" 2>&1 &
+SERVER_PID=$!
+
+# Trap Ctrl+C to kill server cleanly
+cleanup() {
+    echo ""
+    echo "[HARI] Shutting down cleanly..."
+    kill $SERVER_PID 2>/dev/null || true
+    pkill -f "speech_worker.py" 2>/dev/null || true
+    pkill -f "ffplay.*hari_speech" 2>/dev/null || true
+    echo "[HARI] Goodbye."
+    exit 0
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+sleep 1
+
+# Open Browser Interface
+if [ "$MODE" = "voice-setup" ]; then
+    echo "[HARI] Opening Voice Setup Wizard..."
+    open "http://127.0.0.1:$PORT/voice-setup"
+else
+    echo "[HARI] Opening Live Dashboard..."
+    open "http://127.0.0.1:$PORT"
+fi
+
+echo "============================================================"
+echo "HARI IS ALIVE AND LISTENING."
+echo "You can speak aloud in your browser / terminal."
+echo "Nepali, English, and code-switching supported."
+echo "Type messages below, or speak naturally ('Hey Hari')."
+echo "Press Ctrl+C to stop."
+echo "============================================================"
+
+# Interactive Terminal REPL alongside the UI
+while true; do
+    echo -n "You: "
+    if ! read -r USER_INPUT; then
+        break
+    fi
+    if [ -z "$USER_INPUT" ]; then
+        continue
+    fi
+    if [ "$USER_INPUT" = "exit" ] || [ "$USER_INPUT" = "quit" ]; then
+        break
+    fi
+
+    RESPONSE=$(curl -s -X POST "http://127.0.0.1:$PORT/api/chat" \
+        -H "Content-Type: application/json" \
+        -d "{\"text\": $(printf '%s' "$USER_INPUT" | php -r 'echo json_encode(file_get_contents("php://stdin"));')}")
+
+    REPLY=$(printf '%s' "$RESPONSE" | php -r '$d = json_decode(file_get_contents("php://stdin"), true); echo $d["reply"] ?? "No reply";')
+    echo "HARI: $REPLY"
+done

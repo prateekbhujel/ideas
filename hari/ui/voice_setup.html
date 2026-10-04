@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HARI Voice Setup — Personal Speaker Profiling</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .wizard-container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 24px;
+      background: var(--bg-panel);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .prompt-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 20px 0;
+      text-align: center;
+    }
+    .prompt-text {
+      font-size: 1.4rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .prompt-sub {
+      font-size: 1rem;
+      color: var(--accent-cyan);
+      margin-bottom: 12px;
+    }
+    .prompt-meta {
+      font-size: 0.8rem;
+      color: var(--text-sub);
+    }
+    .rec-controls {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .btn-rec {
+      background: var(--accent-red);
+      color: white;
+      font-size: 1rem;
+      padding: 12px 24px;
+      border-radius: 30px;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-rec.recording {
+      animation: pulse 1s infinite;
+      background: #ff0044;
+    }
+    .quality-badge {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+    .quality-badge.accepted { background: rgba(0, 255, 136, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
+    .quality-badge.rejected { background: rgba(255, 51, 102, 0.15); color: var(--accent-red); border: 1px solid var(--accent-red); }
+    .progress-bar-container {
+      margin-top: 24px;
+      background: var(--bg-card);
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="wizard-container">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <h2>🎙️ HARI Personal Voice Setup</h2>
+      <a href="/" style="color: var(--accent-cyan); text-decoration: none; font-size: 0.85rem;">← Back to Dashboard</a>
+    </div>
+    <p style="color: var(--text-sub); margin-top: 6px; font-size: 0.9rem;">
+      Record your natural voice across Nepali, English, and mixed code-switching to build your personal speaker profile. All recordings are validated for clipping and silence and saved exclusively to your external SSD.
+    </p>
+
+    <div class="prompt-card">
+      <div class="prompt-meta" id="promptMeta">Prompt 1 of 12 | Category: Conversational Nepali</div>
+      <div class="prompt-text" id="promptText">नमस्ते, म आजको काम सुरु गर्न पूर्ण रूपमा तयार छु।</div>
+      <div class="prompt-sub" id="promptSub">Namaste, ma aajako kaam suru garna purna roopma tayar chu.</div>
+
+      <div class="rec-controls">
+        <button class="btn-rec" id="btnRec">⏺️ Start Recording</button>
+        <button class="btn btn-primary" id="btnNext" style="display:none;">Next Prompt →</button>
+      </div>
+
+      <div id="qualityResult"></div>
+    </div>
+
+    <div class="progress-bar-container">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+        <span>Speaker Profile: <strong>Pratik</strong></span>
+        <span id="statSummary">0 samples | 0.0s total</span>
+      </div>
+      <div class="meter-bar"><div class="meter-fill" id="overallMeter" style="width: 0%;"></div></div>
+    </div>
+  </div>
+
+  <script>
+    let prompts = [];
+    let currentIdx = 0;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let isRecording = false;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      await loadPrompts();
+      setupRecorder();
+    });
+
+    async function loadPrompts() {
+      try {
+        const res = await fetch("/api/voice/prompts");
+        const data = await res.json();
+        prompts = data.prompts || [];
+        updatePromptUI();
+        updateProfileUI(data.speaker_profile);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function updatePromptUI() {
+      if (currentIdx >= prompts.length) {
+        document.getElementById("promptMeta").innerText = "All prompts completed!";
+        document.getElementById("promptText").innerText = "🎉 Voice Setup Complete!";
+        document.getElementById("promptSub").innerText = "Your speaker profile has been compiled on the external SSD.";
+        document.getElementById("btnRec").style.display = "none";
+        document.getElementById("btnNext").style.display = "none";
+        return;
+      }
+
+      const p = prompts[currentIdx];
+      document.getElementById("promptMeta").innerText = `Prompt ${currentIdx + 1} of ${prompts.length} | Category: ${p.category} | Style: ${p.style}`;
+      document.getElementById("promptText").innerText = p.text;
+      document.getElementById("promptSub").innerText = p.roman || p.devanagari || "";
+      document.getElementById("qualityResult").innerHTML = "";
+      document.getElementById("btnNext").style.display = "none";
+    }
+
+    function updateProfileUI(prof) {
+      if (!prof) return;
+      const count = prof.total_samples || 0;
+      const dur = prof.total_duration_s || 0;
+      document.getElementById("statSummary").innerText = `${count} samples | ${dur}s audio collected`;
+      const pct = Math.min(100, Math.round((count / prompts.length) * 100));
+      document.getElementById("overallMeter").style.width = `${pct}%`;
+    }
+
+    async function setupRecorder() {
+      const btn = document.getElementById("btnRec");
+      btn.addEventListener("click", async () => {
+        if (!isRecording) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+              if (e.data.size > 0) audioChunks.push(e.data);
+            };
+
+            mediaRecorder.onstop = async () => {
+              const audioBlob = new Blob(audioChunks, { type: "audio/wav" });
+              const reader = new FileReader();
+              reader.readAsDataURL(audioBlob);
+              reader.onloadend = async () => {
+                await submitRecording(reader.result);
+              };
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            btn.innerText = "⏹️ Stop Recording";
+            btn.classList.add("recording");
+          } catch (err) {
+            alert("Microphone permission required for voice setup: " + err);
+          }
+        } else {
+          mediaRecorder.stop();
+          isRecording = false;
+          btn.innerText = "⏺️ Start Recording";
+          btn.classList.remove("recording");
+        }
+      });
+
+      document.getElementById("btnNext").addEventListener("click", () => {
+        currentIdx++;
+        updatePromptUI();
+      });
+    }
+
+    async function submitRecording(b64Audio) {
+      const p = prompts[currentIdx];
+      const qBox = document.getElementById("qualityResult");
+      qBox.innerHTML = "<em>Analyzing audio quality with HARI Acoustic Engine...</em>";
+
+      try {
+        const res = await fetch("/api/voice/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt_id: p.id,
+            audio_b64: b64Audio
+          })
+        });
+        const data = await res.json();
+
+        if (data.status === "accepted") {
+          qBox.innerHTML = `
+            <div class="quality-badge accepted">
+              ✓ Accepted! Duration: ${data.quality.duration_s}s | Peak: ${data.quality.peak} | Saved to SSD
+            </div>
+          `;
+          document.getElementById("btnNext").style.display = "inline-block";
+          const statusRes = await fetch("/api/voice/status");
+          const statusData = await statusRes.json();
+          updateProfileUI(statusData.profile);
+        } else {
+          qBox.innerHTML = `
+            <div class="quality-badge rejected">
+              ✗ Quality Notice: ${data.message}
+            </div>
+          `;
+        }
+      } catch (err) {
+        qBox.innerHTML = `<div class="quality-badge rejected">Upload error: ${err}</div>`;
+      }
+    }
+  </script>
+</body>
+</html>
