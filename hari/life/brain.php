@@ -53,10 +53,15 @@ final class HariBrain
                 $score=array_sum($scores)/max(1,count($scores));
                 $candidate=['verb'=>$verbValue,'verbAtom'=>$opAtom,'verbToken'=>$verbToken,'verbScore'=>$verbScore,'roles'=>$roles,'args'=>$aligned['args'],'scores'=>$scores,'used'=>$aligned['used'],'roleTrace'=>$aligned['trace'],'score'=>$score];
                 $candidate['used'][$verbIndex]=true;
+                $candidateArgs=$candidate['args'];ksort($candidateArgs);
+                $candidate['semanticSignature']=(new SemanticFrame($candidate['verb'],$candidateArgs,false))->canonical();
+
                 if($best===null||$score>$best['score']){
-                    if($best!==null)$runner=max($runner,$best['score']);
+                    if($best!==null&&$best['semanticSignature']!==$candidate['semanticSignature'])$runner=max($runner,$best['score']);
                     $best=$candidate;
-                }else{$runner=max($runner,$score);}
+                }elseif($best['semanticSignature']!==$candidate['semanticSignature']){
+                    $runner=max($runner,$score);
+                }
             }
         }
 
